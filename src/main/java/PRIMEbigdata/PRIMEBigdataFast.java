@@ -62,8 +62,8 @@ public class PRIMEBigdataFast {
 				}
 
 				for (Integer tk : cleanTokens) {
-					Cluster cluster = new Cluster(tk, new HashSet<Node>(), new HashSet<Node>());
-					cluster.addInNewCollection(new Node(tk, se.getKey(), cleanTokens, new HashSet<>(), se.isSource(), false));
+					Cluster cluster = new Cluster(tk, se.getIncrementID(), new HashSet<Node>(), new HashSet<Node>());
+					cluster.addInNewCollection(new Node(tk, se.getKey(), cleanTokens, new HashSet<>(), se.isSource(), true));
 					output.collect(cluster);
 				}
 			}
@@ -74,7 +74,6 @@ public class PRIMEBigdataFast {
 		WindowedStream<Cluster, Integer, TimeWindow> entityBlocks = streamOfPairs.keyBy(new KeySelector<Cluster, Integer>() {
 			@Override
 			public Integer getKey(Cluster cluster) throws Exception {
-//				cluster.mergeCollections();
 				return cluster.getTokenkey();
 			}
 		}).timeWindow(Time.seconds(Integer.parseInt(args[2])), Time.seconds(Integer.parseInt(args[3])));//define the window
@@ -83,25 +82,21 @@ public class PRIMEBigdataFast {
 		SingleOutputStreamOperator<Cluster> entityClusters = entityBlocks.reduce(new ReduceFunction<Cluster>() {
 			
 			@Override
-			public Cluster reduce(Cluster n1, Cluster n2) throws Exception {
-				if (n1.getNewCollection().isEmpty()) {
-					n1.markEntities();
+			public Cluster reduce(Cluster c1, Cluster c2) throws Exception {
+				if (c1.getLastIncrementID() > c2.getLastIncrementID()) {
+					c1.mergeCollections();
+					c2.markEntities();
+				} else if (c1.getLastIncrementID() < c2.getLastIncrementID()) {
+					c2.mergeCollections();
+					c1.markEntities();
 				} else {
-					n1.mergeCollections();
+					c1.mergeCollections();
+					c2.mergeCollections();
 				}
-				
-				if (n2.getNewCollection().isEmpty()) {
-					n2.markEntities();
-				} else {
-					n2.mergeCollections();
-				}
-				
-				if (!n1.getNewCollection().isEmpty() || !n1.getNewCollection().isEmpty()) {
-					System.out.println();
-				}
-				n1.addAllNewCollection(n2.getNewCollection());
-				n1.addAllCollection(n2.getCollection());
-				return new Cluster(n1.getTokenkey(), n1.getCollection(), n1.getNewCollection());
+				c1.addAllNewCollection(c2.getNewCollection());
+				c1.addAllCollection(c2.getCollection());
+				c1.setLastIncrementID(Math.max(c1.getLastIncrementID(), c2.getLastIncrementID()));
+				return c1;
 			}
 			
 		});
@@ -111,13 +106,6 @@ public class PRIMEBigdataFast {
 
 			@Override
 			public void flatMap(Cluster value, Collector<Node> out) throws Exception {
-//				if (!value.getCollection().isEmpty()) {
-//					value.markEntities();
-//				} 
-//				if (!value.getNewCollection().isEmpty()) {
-//					value.mergeCollections();
-//				}
-					
 				ArrayList<Node> entitiesToCompare = new ArrayList<Node>(value.getCollection());
 				ArrayList<Node> comparedEntites = new ArrayList<Node>();
 				Map<Integer, Node> outputMap = new HashMap<Integer, Node>();
@@ -129,9 +117,6 @@ public class PRIMEBigdataFast {
 						//Only compare nodes from distinct sources and marked as new (avoid recompute comparisons)
 						if (n1.isSource() != n2.isSource() && (n1.isMarked() || n2.isMarked())) {
 							double similarity = calculateSimilarity(n1.getToken(), n1.getBlocks(), n2.getBlocks());
-							if (!n1.isMarked() || !n2.isMarked()) {
-								System.out.println();
-							}
 							if (similarity >= 0) {
 //								numberOfComparisons.add(1);
 								if (n1.isSource()) {
@@ -141,7 +126,6 @@ public class PRIMEBigdataFast {
 										n1.addNeighbor(new Tuple2<Integer, Double>(n2.getId(), similarity));
 										outputMap.put(n1.getId(), n1);
 									}
-//									comparedEntites.add(n1);
 								} else {
 									if (outputMap.containsKey(n2.getId())) {
 										outputMap.get(n2.getId()).addNeighbor(new Tuple2<Integer, Double>(n1.getId(), similarity));
@@ -149,7 +133,6 @@ public class PRIMEBigdataFast {
 										n2.addNeighbor(new Tuple2<Integer, Double>(n1.getId(), similarity));
 										outputMap.put(n2.getId(), n2);
 									}
-//									comparedEntites.add(n2);
 								}
 							}
 						}
@@ -158,14 +141,9 @@ public class PRIMEBigdataFast {
 				
 				
 				for (Node n : outputMap.values()) {
-					
+					n.setMarked(false);
 					out.collect(n);
 				}
-				
-//				for (Node node : comparedEntites) {
-//					node.setMarked(false);
-//					out.collect(node);
-//				}
 				
 			}
 			
@@ -202,7 +180,7 @@ public class PRIMEBigdataFast {
 			@Override
 			public Node reduce(Node n1, Node n2) throws Exception {
 				n1.addAllNeighbor(n2);
-				return new Node(n1.getToken(), n1.getId(), n1.getBlocks(), n1.getNeighbors(), n1.isSource());
+				return n1;//new Node(n1.getToken(), n1.getId(), n1.getBlocks(), n1.getNeighbors(), n1.isSource());
 			}
 		});
 		

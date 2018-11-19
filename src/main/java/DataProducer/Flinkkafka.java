@@ -1,4 +1,4 @@
-package main;
+package DataProducer;
 
 import java.util.Properties;
 

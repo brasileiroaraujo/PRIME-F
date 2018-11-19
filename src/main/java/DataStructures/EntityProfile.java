@@ -31,6 +31,7 @@ public class EntityProfile implements Serializable {
 	private final String entityUrl;
 	private boolean isSource;
 	private int key;
+	private int incrementID;
 	private Timestamp creation;
 
 	public Object[] getAllValues() {
@@ -75,9 +76,10 @@ public class EntityProfile implements Serializable {
 		isSource = Boolean.parseBoolean(parts[0]);
 		entityUrl = parts[1];
 		key = Integer.valueOf(parts[2]);
+		incrementID = Integer.valueOf(parts[3]);
 		creation = new Timestamp(System.currentTimeMillis());
 		attributes = new HashSet();
-		for (int i = 3; i < parts.length; i++) {//the first element is the key (avoid!)
+		for (int i = 4; i < parts.length; i++) {//the first element is the key (avoid!)
 			String[] nameValue = parts[i].split(split2);
 			if (nameValue.length == 1) {
 				attributes.add(new Attribute(nameValue[0], ""));
@@ -117,6 +119,7 @@ public class EntityProfile implements Serializable {
 		output += isSource + split1;
 		output += entityUrl + split1;//separate the attributes
 		output += key + split1;//separate the attributes
+		output += incrementID + split1;//separate the attributes
 		
 		for (Attribute attribute : attributes) {
 			output += attribute.getName() + split2 + attribute.getValue() + split1;
@@ -125,18 +128,18 @@ public class EntityProfile implements Serializable {
 		return output;
 	}
 	
-	public String getStandardFormat2() {
-		String output = "";
-		output += isSource + split1;
-//		output += entityUrl + split1;//separate the attributes
-		output += key + split1;//separate the attributes
-		
-		for (Attribute attribute : attributes) {
-			output += attribute.getValue() + " ";
-		}
-				
-		return output;
-	}
+//	public String getStandardFormat2() {
+//		String output = "";
+//		output += isSource + split1;
+////		output += entityUrl + split1;//separate the attributes
+//		output += key + split1;//separate the attributes
+//		
+//		for (Attribute attribute : attributes) {
+//			output += attribute.getValue() + " ";
+//		}
+//				
+//		return output;
+//	}
 
 
 	public boolean isSource() {
@@ -156,9 +159,17 @@ public class EntityProfile implements Serializable {
 		this.creation = creation;
 	}
 	
+	public int getIncrementID() {
+		return incrementID;
+	}
+
+	public void setIncrementID(int incrementID) {
+		this.incrementID = incrementID;
+	}
+
 	@Override
 	public String toString() {
-		return "" + getKey() + isSource();
+		return "" + getKey() + "-" + isSource();
 	}
 
 }

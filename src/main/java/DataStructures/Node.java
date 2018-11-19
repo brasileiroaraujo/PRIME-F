@@ -41,6 +41,7 @@ public class Node {
 		this.marked = markedToCompare;
 	}
 	
+	
 //	public Node(int id, Set<Integer> blocks, Set<Tuple2<Integer, Double>> neighbors, boolean isSource, Integer tokenTemporary) {
 //		super();
 //		this.id = id;
@@ -202,6 +203,7 @@ public class Node {
 	public void setStartTime(long startTime) {
 		this.startTime = startTime;
 	}
+
 	
 	
 }
