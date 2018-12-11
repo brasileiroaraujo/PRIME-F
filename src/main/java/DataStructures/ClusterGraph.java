@@ -76,15 +76,19 @@ public class ClusterGraph {
 	public void merge(ClusterGraph c2) {
 		for (NodeGraph s : entitiesFromSource) {
 			for (NodeGraph t : c2.getEntitiesFromTarget()) {
-				double sim = calculateSimilarity(s.getToken(), s.getBlocks(), t.getBlocks());
-				s.addNeighbor(new TupleSimilarity(t.getId(), sim));
+				double sim = calculateSimilarity(tokenkey, s.getBlocks(), t.getBlocks());
+				if (sim > 0) {
+					s.addNeighbor(new TupleSimilarity(t.getId(), sim));
+				}
 			}
 		}
 		
 		for (NodeGraph s : c2.getEntitiesFromSource()) {
 			for (NodeGraph t : entitiesFromTarget) {
-				double sim = calculateSimilarity(s.getToken(), s.getBlocks(), t.getBlocks());
-				s.addNeighbor(new TupleSimilarity(t.getId(), sim));
+				double sim = calculateSimilarity(tokenkey, s.getBlocks(), t.getBlocks());
+				if (sim > 0) {
+					s.addNeighbor(new TupleSimilarity(t.getId(), sim));
+				}
 			}
 			entitiesFromSource.add(s);
 		}
@@ -94,7 +98,7 @@ public class ClusterGraph {
 	}
 	
 	private double calculateSimilarity(Integer blockKey, Set<Integer> ent1, Set<Integer> ent2) {
-		int maxSize = Math.max(ent1.size() - 1, ent2.size() - 1);
+		int minSize = Math.min(ent1.size() - 1, ent2.size() - 1);//<<<<< min 
 		Set<Integer> intersect = new HashSet<Integer>(ent1);
 		intersect.retainAll(ent2);
 
@@ -103,8 +107,8 @@ public class ClusterGraph {
 			return -1;
 		}
 
-		if (maxSize > 0) {
-			double x = (double) intersect.size() / maxSize;
+		if (minSize > 0) {
+			double x = (double) intersect.size() / minSize;
 			return x;
 		} else {
 			return 0;

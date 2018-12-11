@@ -20,8 +20,8 @@ public class IncrementalQualityEvaluation {
 	
 	public static void main(String[] args) {
 		//CHOOSE THE INPUT PATHS
-        String INPUT_PATH_GROUNDTRUTH = "inputs/groundtruth_amazongp";//"inputs/groundtruth_amazongp";//"inputs/groundtruth_abtbuy";
-        String INPUT_PATH_BLOCKS = "outputs/amazongp40-600-fast/";
+        String INPUT_PATH_GROUNDTRUTH = "inputs/groundtruth_abtbuy";//"inputs/groundtruth_amazongp";//"inputs/groundtruth_abtbuy";
+        String INPUT_PATH_BLOCKS = "outputs/abtbuyGraph30-300-k20-min/";
         
         
     	HashSet<IdDuplicates> groundtruth = null;
@@ -68,6 +68,9 @@ public class IncrementalQualityEvaluation {
 //        				sCurrentLine = sCurrentLine.replace("]", "");
 //        				sCurrentLine = sCurrentLine.replace(" ", "");
         				String[] pruned = sCurrentLine.split(">");
+        				if (pruned.length < 2) {
+							continue;
+						}
         				String[] entities = pruned[1].split(",");
         				
         				//old version of prime

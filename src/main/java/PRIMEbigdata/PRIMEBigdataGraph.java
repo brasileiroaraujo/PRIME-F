@@ -79,44 +79,42 @@ public class PRIMEBigdataGraph {
 		});
 		
 		
-		KeyedStream<ClusterGraph, Integer> entityBlocks = streamOfPairs.keyBy(new KeySelector<ClusterGraph, Integer>() {
+		WindowedStream<ClusterGraph, Integer, TimeWindow> entityBlocks = streamOfPairs.keyBy(new KeySelector<ClusterGraph, Integer>() {
 			@Override
 			public Integer getKey(ClusterGraph cluster) throws Exception {
 				return cluster.getTokenkey();
 			}
-		});//.timeWindow(Time.seconds(Integer.parseInt(args[2])), Time.seconds(Integer.parseInt(args[3])));//define the window
+		}).timeWindow(Time.seconds(Integer.parseInt(args[3])), Time.seconds(Integer.parseInt(args[4])));//define the window
 		
 		
-		AllWindowedStream<ClusterGraph, TimeWindow> graph = entityBlocks.reduce(new ReduceFunction<ClusterGraph>() {
+		SingleOutputStreamOperator<ClusterGraph> graph = entityBlocks.reduce(new ReduceFunction<ClusterGraph>() {
 			
 			@Override
 			public ClusterGraph reduce(ClusterGraph c1, ClusterGraph c2) throws Exception {
 				c1.merge(c2);
 				return c1;
 			}
-		}).timeWindowAll(Time.seconds(Integer.parseInt(args[3])), Time.seconds(Integer.parseInt(args[4])));
+		});//.timeWindowAll(Time.seconds(Integer.parseInt(args[3])), Time.seconds(Integer.parseInt(args[4])));
 		
-		SingleOutputStreamOperator<NodeGraph> groupedGraph = graph.apply(new AllWindowFunction<ClusterGraph, NodeGraph, TimeWindow>() {
+		SingleOutputStreamOperator<NodeGraph> groupedGraph = graph.flatMap(new FlatMapFunction<ClusterGraph, NodeGraph>() {
 
 			@Override
-			public void apply(TimeWindow window, Iterable<ClusterGraph> values, Collector<NodeGraph> out)
-					throws Exception {
-				for (ClusterGraph cluster : values) {
-					for (NodeGraph sourceNodes : cluster.getEntitiesFromSource()) {
-						out.collect(sourceNodes);
-					}
+			public void flatMap(ClusterGraph cluster, Collector<NodeGraph> out) throws Exception {
+				for (NodeGraph sourceNodes : cluster.getEntitiesFromSource()) {
+					out.collect(sourceNodes);
 				}
-				
 			}
 		});
 		
-		
-		SingleOutputStreamOperator<NodeGraph> prunedGraph = groupedGraph.keyBy(new KeySelector<NodeGraph, Integer>() {
+		WindowedStream<NodeGraph, Integer, TimeWindow> keyedGraph = groupedGraph.keyBy(new KeySelector<NodeGraph, Integer>() {
 			@Override
 			public Integer getKey(NodeGraph node) throws Exception {
 				return node.getId();
 			}
-		}).reduce(new ReduceFunction<NodeGraph>() {
+		}).timeWindow(Time.seconds(Integer.parseInt(args[3])), Time.seconds(Integer.parseInt(args[4])));//define the window;;
+		
+		
+		SingleOutputStreamOperator<NodeGraph> prunedGraph = keyedGraph.reduce(new ReduceFunction<NodeGraph>() {
 			
 			@Override
 			public NodeGraph reduce(NodeGraph n1, NodeGraph n2) throws Exception {
@@ -131,9 +129,10 @@ public class PRIMEBigdataGraph {
 		DataStreamSink<String> output = prunedGraph.rebalance().map(new MapFunction<NodeGraph, String>() {
 			@Override
 			public String map(NodeGraph node) throws Exception {
+				node.pruning();
 				return node.getId() + ">" + node.toString();
 			}
-		}).print();//.writeAsText(args[5]);
+		}).writeAsText(args[5]);
 		
 		
 //		SingleOutputStreamOperator<Cluster> entityClusters = entityBlocks.reduce(new ReduceFunction<Cluster>() {
