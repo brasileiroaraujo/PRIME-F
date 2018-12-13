@@ -1,9 +1,13 @@
 package DataStructures;
 
 import java.io.Serializable;
+import java.lang.reflect.Array;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.TreeSet;
+
+import org.apache.commons.math3.stat.descriptive.moment.Mean;
+import org.apache.commons.math3.stat.descriptive.moment.Variance;
 
 import scala.Tuple2;
 
@@ -56,9 +60,11 @@ public class NodeGraph {
 //	}
 
 
-	public NodeGraph(int id) {
+	public NodeGraph(int id, int maxNumberOfNeighbors) {
 		super();
 		this.id = id;
+		this.neighbors = new TreeSet<TupleSimilarity>();
+		this.maxNumberOfNeighbors = maxNumberOfNeighbors;
 		this.startTime = System.currentTimeMillis();
 	}
 	
@@ -136,8 +142,8 @@ public class NodeGraph {
 //		}
 //	}
 	
-	public void pruning() {
-		double threshold = setThreshold();
+	public void pruningWNP() {
+		double threshold = getMeanDistribution();
 		TreeSet<TupleSimilarity> prunnedNeighbors = new TreeSet<>();
 		
 		for (TupleSimilarity neighbor : neighbors) {
@@ -150,7 +156,40 @@ public class NodeGraph {
 		
 	}
 	
-	private double setThreshold() {
+	public void pruningOutliers() {
+		Tuple2<Double, Double> meanAndDP = getMeanAndDPDistribution();
+		double threshold = meanAndDP._1() - meanAndDP._2();
+		TreeSet<TupleSimilarity> prunnedNeighbors = new TreeSet<>();
+		
+		for (TupleSimilarity neighbor : neighbors) {
+			if (neighbor.getValue() >= threshold) {
+				prunnedNeighbors.add(neighbor);
+			}
+		}
+		
+		this.neighbors = prunnedNeighbors;
+		
+	}
+	
+	private Tuple2<Double, Double> getMeanAndDPDistribution() {
+		double numberOfNeighbors = neighbors.size();
+		double sumWeight = 0.0;
+		double maxSim = -1;
+		double[] values = new double[neighbors.size()];
+		int index = 0;
+		
+		for (TupleSimilarity neighbor : neighbors) {
+			sumWeight += neighbor.getValue();
+			values[index] = neighbor.getValue();
+			if (neighbor.getValue() > maxSim) {
+				maxSim = neighbor.getValue();
+			}
+		}
+		
+		return new Tuple2<Double, Double>((sumWeight/numberOfNeighbors), Math.sqrt(new Variance().evaluate(values)));
+	}
+
+	private double getMeanDistribution() {
 		double numberOfNeighbors = neighbors.size();
 		double sumWeight = 0.0;
 		
@@ -158,6 +197,20 @@ public class NodeGraph {
 			sumWeight += neighbor.getValue();
 		}
 		return sumWeight/numberOfNeighbors;
+	}
+	
+	private Tuple2<Double, Double> getMeanAndMaxDistribution() {
+		double numberOfNeighbors = neighbors.size();
+		double sumWeight = 0.0;
+		double maxSim = -1;
+		
+		for (TupleSimilarity neighbor : neighbors) {
+			sumWeight += neighbor.getValue();
+			if (neighbor.getValue() > maxSim) {
+				maxSim = neighbor.getValue();
+			}
+		}
+		return new Tuple2<Double, Double>((sumWeight/numberOfNeighbors), maxSim);
 	}
 
 	public boolean isMarked() {

@@ -63,6 +63,10 @@ public class ClusterGraph {
 	public void addInTarget(NodeGraph node) {
 		entitiesFromTarget.add(node);
 	}
+	
+	public int size() {
+		return entitiesFromSource.size() + entitiesFromTarget.size();
+	}
 
 	@Override
 	public String toString() {

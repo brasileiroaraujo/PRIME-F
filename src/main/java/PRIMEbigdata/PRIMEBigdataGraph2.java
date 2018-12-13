@@ -41,7 +41,7 @@ import scala.Tuple2;
 import tokens.KeywordGenerator;
 import tokens.KeywordGeneratorImpl;
 
-public class PRIMEBigdataGraph {
+public class PRIMEBigdataGraph2 {
 	
 	public static void main(String[] args) throws Exception {
 		
@@ -112,13 +112,42 @@ public class PRIMEBigdataGraph {
 			}
 		});//.timeWindowAll(Time.seconds(Integer.parseInt(args[3])), Time.seconds(Integer.parseInt(args[4])));
 		
-		SingleOutputStreamOperator<NodeGraph> groupedGraph = graph.flatMap(new FlatMapFunction<ClusterGraph, NodeGraph>() {
+		
+		SingleOutputStreamOperator<ClusterGraph> filterBlocking = graph.filter(new FilterFunction<ClusterGraph>() {
+			
+			@Override
+			public boolean filter(ClusterGraph c) throws Exception {
+				return c.size() < 100;
+			}
+		});
+		
+		SingleOutputStreamOperator<Tuple2<String, Integer>> entityPairs = filterBlocking.flatMap(new FlatMapFunction<ClusterGraph, Tuple2<String, Integer>>() {
 
 			@Override
-			public void flatMap(ClusterGraph cluster, Collector<NodeGraph> out) throws Exception {
-				for (NodeGraph sourceNodes : cluster.getEntitiesFromSource()) {
-					out.collect(sourceNodes);
+			public void flatMap(ClusterGraph value, Collector<Tuple2<String, Integer>> out) throws Exception {
+				for (NodeGraph s : value.getEntitiesFromSource()) {
+					for (NodeGraph t : value.getEntitiesFromTarget()) {
+						out.collect(new Tuple2<String, Integer>(s.getId() + "-" + t.getId(), 1));
+					}
 				}
+				
+			}
+		}).keyBy(new KeySelector<Tuple2<String,Integer>, String>() {
+
+			@Override
+			public String getKey(Tuple2<String, Integer> value) throws Exception {
+				return value._1();
+			}
+		}).sum(1);//FIX IT
+		
+		SingleOutputStreamOperator<NodeGraph> groupedGraph = entityPairs.map(new MapFunction<Tuple2<String,Integer>, NodeGraph>() {
+
+			@Override
+			public NodeGraph map(Tuple2<String, Integer> value) throws Exception {
+				String[] pair = value._1().split("-");
+				NodeGraph node = new NodeGraph(Integer.parseInt(pair[0]), Integer.parseInt(args[2]));
+				node.addNeighbor(new TupleSimilarity(Integer.parseInt(pair[1]), value._2().doubleValue()));
+				return node;
 			}
 		});
 		
