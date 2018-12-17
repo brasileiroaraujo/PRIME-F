@@ -1,12 +1,9 @@
 package DataStructures;
 
-import java.io.Serializable;
-import java.lang.reflect.Array;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.TreeSet;
 
-import org.apache.commons.math3.stat.descriptive.moment.Mean;
 import org.apache.commons.math3.stat.descriptive.moment.Variance;
 
 import scala.Tuple2;
@@ -126,7 +123,13 @@ public class NodeGraph {
 
 	
 	public void addNeighbor(TupleSimilarity neighbor) {
-		this.neighbors.add(neighbor);
+		if (this.neighbors.contains(neighbor)) {
+			this.neighbors.remove(neighbor);
+			this.neighbors.add(neighbor);
+		} else {
+			this.neighbors.add(neighbor);
+		}
+		
 		if (neighbors.size() > maxNumberOfNeighbors) {
 			neighbors.pollLast();
 		}

@@ -15,7 +15,6 @@ import org.apache.flink.api.common.functions.ReduceFunction;
 import org.apache.flink.api.java.functions.KeySelector;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSink;
-import org.apache.flink.streaming.api.datastream.KeyedStream;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.datastream.WindowedStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
@@ -46,7 +45,7 @@ public class PRIMEBigdataFast {
 		DataStream<String> lines = env.addSource(new FlinkKafkaConsumer082<>("mytopic", new SimpleStringSchema(), properties));
 		
 		// the rebelance call is causing a repartitioning of the data so that all machines
-		DataStream<EntityProfile> entities = lines.rebalance().map(s -> new EntityProfile((String) s));
+		DataStream<EntityProfile> entities = lines.rebalance().map(s -> new EntityProfile(s));
 		
 		DataStream<Cluster> streamOfPairs = entities.rebalance().flatMap(new FlatMapFunction<EntityProfile, Cluster>() {
 

@@ -30,7 +30,6 @@ import DataStructures.Cluster;
 import DataStructures.EntityProfile;
 import DataStructures.Node;
 import exceptions.EndException;
-import javassist.expr.Instanceof;
 import scala.Tuple2;
 import tokens.KeywordGenerator;
 import tokens.KeywordGeneratorImpl;
@@ -60,7 +59,7 @@ public class PRIMEBigdataRefined {
 //					if (s.equals("THEEND")) {
 //						throw new EndException();
 //					}
-				return new EntityProfile((String) s);
+				return new EntityProfile(s);
 			}
 		});
 		

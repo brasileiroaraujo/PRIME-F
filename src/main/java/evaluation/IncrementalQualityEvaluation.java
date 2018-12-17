@@ -21,7 +21,7 @@ public class IncrementalQualityEvaluation {
 	public static void main(String[] args) {
 		//CHOOSE THE INPUT PATHS
         String INPUT_PATH_GROUNDTRUTH = "inputs/groundtruth_abtbuy";//"inputs/groundtruth_amazongp";//"inputs/groundtruth_abtbuy";
-        String INPUT_PATH_BLOCKS = "outputs/abtbuyGraph30-300-k20-min-wnp2/";
+        String INPUT_PATH_BLOCKS = "outputs/abtbuy-20-200-20-blkFilterPesos-wnp3/";
         
         
     	HashSet<IdDuplicates> groundtruth = null;

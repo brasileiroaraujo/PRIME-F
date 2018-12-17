@@ -1,10 +1,8 @@
 package tokens;
-import java.util.LinkedList;
 import java.util.Set;
 import java.util.TreeSet;
 
 import DataStructures.TupleSimilarity;
-import scala.Tuple2;
 
 public class ListOrdenada {
 

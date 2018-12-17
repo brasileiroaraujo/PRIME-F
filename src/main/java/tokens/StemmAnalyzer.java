@@ -8,12 +8,9 @@ import org.apache.lucene.analysis.StopFilter;
 import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.analysis.standard.StandardFilter;
 import org.apache.lucene.analysis.standard.StandardTokenizer;
-import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
 import org.apache.lucene.util.Version;
 
 import java.io.Reader;
-import java.io.StringReader;
-import java.util.HashSet;
 import java.util.Set;
 
 /**

@@ -24,6 +24,9 @@ public class TupleSimilarity implements Comparable<TupleSimilarity>{
 	
 	@Override
 	public int compareTo(TupleSimilarity other) {
+		if (key.equals(((TupleSimilarity)other).getKey())) {
+			return 0;
+		}
 		return other.getValue().compareTo(value);
 	}
 	
@@ -31,4 +34,5 @@ public class TupleSimilarity implements Comparable<TupleSimilarity>{
 	public String toString() {
 		return key + ": " + value;
 	}
+	
 }

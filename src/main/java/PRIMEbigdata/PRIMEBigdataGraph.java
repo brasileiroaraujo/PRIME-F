@@ -1,29 +1,20 @@
 package PRIMEbigdata;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import org.apache.flink.api.common.functions.FilterFunction;
 import org.apache.flink.api.common.functions.FlatMapFunction;
 import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.api.common.functions.ReduceFunction;
 import org.apache.flink.api.java.functions.KeySelector;
-import org.apache.flink.streaming.api.datastream.AllWindowedStream;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSink;
-import org.apache.flink.streaming.api.datastream.KeyedStream;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.datastream.WindowedStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
-import org.apache.flink.streaming.api.functions.windowing.AllWindowFunction;
 import org.apache.flink.streaming.api.windowing.time.Time;
 import org.apache.flink.streaming.api.windowing.windows.TimeWindow;
 import org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumer082;
@@ -31,13 +22,10 @@ import org.apache.flink.streaming.util.serialization.SimpleStringSchema;
 import org.apache.flink.util.Collector;
 
 import DataStructures.Attribute;
-import DataStructures.Cluster;
 import DataStructures.ClusterGraph;
 import DataStructures.EntityProfile;
-import DataStructures.Node;
 import DataStructures.NodeGraph;
 import DataStructures.TupleSimilarity;
-import scala.Tuple2;
 import tokens.KeywordGenerator;
 import tokens.KeywordGeneratorImpl;
 
@@ -57,7 +45,7 @@ public class PRIMEBigdataGraph {
 		DataStream<String> lines = env.addSource(new FlinkKafkaConsumer082<>("mytopic", new SimpleStringSchema(), properties));
 		
 		// the rebelance call is causing a repartitioning of the data so that all machines
-		DataStream<EntityProfile> entities = lines.rebalance().map(s -> new EntityProfile((String) s));
+		DataStream<EntityProfile> entities = lines.rebalance().map(s -> new EntityProfile(s));
 		
 		DataStream<ClusterGraph> streamOfPairs = entities.rebalance().flatMap(new FlatMapFunction<EntityProfile, ClusterGraph>() {
 

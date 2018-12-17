@@ -11,8 +11,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 
-import DataStructures.EntityProfile;
-import DataStructures.GroundTruthEntityIndex;
 import DataStructures.IdDuplicates;
 
 public class QualityEvaluation {

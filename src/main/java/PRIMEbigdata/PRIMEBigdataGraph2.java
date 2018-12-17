@@ -1,11 +1,6 @@
 package PRIMEbigdata;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.regex.Matcher;
@@ -16,14 +11,12 @@ import org.apache.flink.api.common.functions.FlatMapFunction;
 import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.api.common.functions.ReduceFunction;
 import org.apache.flink.api.java.functions.KeySelector;
-import org.apache.flink.streaming.api.datastream.AllWindowedStream;
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSink;
-import org.apache.flink.streaming.api.datastream.KeyedStream;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.datastream.WindowedStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
-import org.apache.flink.streaming.api.functions.windowing.AllWindowFunction;
 import org.apache.flink.streaming.api.windowing.time.Time;
 import org.apache.flink.streaming.api.windowing.windows.TimeWindow;
 import org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumer082;
@@ -31,16 +24,14 @@ import org.apache.flink.streaming.util.serialization.SimpleStringSchema;
 import org.apache.flink.util.Collector;
 
 import DataStructures.Attribute;
-import DataStructures.Cluster;
 import DataStructures.ClusterGraph;
 import DataStructures.EntityProfile;
-import DataStructures.Node;
 import DataStructures.NodeGraph;
 import DataStructures.TupleSimilarity;
-import scala.Tuple2;
 import tokens.KeywordGenerator;
 import tokens.KeywordGeneratorImpl;
 
+//localhost:9092 localhost:2181 20 200 20 outputs/
 public class PRIMEBigdataGraph2 {
 	
 	public static void main(String[] args) throws Exception {
@@ -57,7 +48,7 @@ public class PRIMEBigdataGraph2 {
 		DataStream<String> lines = env.addSource(new FlinkKafkaConsumer082<>("mytopic", new SimpleStringSchema(), properties));
 		
 		// the rebelance call is causing a repartitioning of the data so that all machines
-		DataStream<EntityProfile> entities = lines.rebalance().map(s -> new EntityProfile((String) s));
+		DataStream<EntityProfile> entities = lines.rebalance().map(s -> new EntityProfile(s));
 		
 		DataStream<ClusterGraph> streamOfPairs = entities.rebalance().flatMap(new FlatMapFunction<EntityProfile, ClusterGraph>() {
 
@@ -121,32 +112,26 @@ public class PRIMEBigdataGraph2 {
 			}
 		});
 		
-		SingleOutputStreamOperator<Tuple2<String, Integer>> entityPairs = filterBlocking.flatMap(new FlatMapFunction<ClusterGraph, Tuple2<String, Integer>>() {
+		SingleOutputStreamOperator<Tuple2<String, Double>> entityPairs = filterBlocking.flatMap(new FlatMapFunction<ClusterGraph, Tuple2<String, Double>>() {
 
 			@Override
-			public void flatMap(ClusterGraph value, Collector<Tuple2<String, Integer>> out) throws Exception {
+			public void flatMap(ClusterGraph value, Collector<Tuple2<String, Double>> out) throws Exception {
 				for (NodeGraph s : value.getEntitiesFromSource()) {
 					for (NodeGraph t : value.getEntitiesFromTarget()) {
-						out.collect(new Tuple2<String, Integer>(s.getId() + "-" + t.getId(), 1));
+						out.collect(new Tuple2<String, Double>(s.getId() + "-" + t.getId(), 1.0/(value.size()/2)));
 					}
 				}
 				
 			}
-		}).keyBy(new KeySelector<Tuple2<String,Integer>, String>() {
-
-			@Override
-			public String getKey(Tuple2<String, Integer> value) throws Exception {
-				return value._1();
-			}
-		}).sum(1);//FIX IT
+		}).keyBy(0).timeWindow(Time.seconds(Integer.parseInt(args[3])), Time.seconds(Integer.parseInt(args[4]))).sum(1);//group by the tuple field "0" and sum up tuple field "1"
 		
-		SingleOutputStreamOperator<NodeGraph> groupedGraph = entityPairs.map(new MapFunction<Tuple2<String,Integer>, NodeGraph>() {
+		SingleOutputStreamOperator<NodeGraph> groupedGraph = entityPairs.map(new MapFunction<Tuple2<String,Double>, NodeGraph>() {
 
 			@Override
-			public NodeGraph map(Tuple2<String, Integer> value) throws Exception {
-				String[] pair = value._1().split("-");
+			public NodeGraph map(Tuple2<String, Double> value) throws Exception {
+				String[] pair = value.f0.split("-");
 				NodeGraph node = new NodeGraph(Integer.parseInt(pair[0]), Integer.parseInt(args[2]));
-				node.addNeighbor(new TupleSimilarity(Integer.parseInt(pair[1]), value._2().doubleValue()));
+				node.addNeighbor(new TupleSimilarity(Integer.parseInt(pair[1]), value.f1.doubleValue()));
 				return node;
 			}
 		});

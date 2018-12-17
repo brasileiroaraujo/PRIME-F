@@ -12,7 +12,7 @@ import java.util.Calendar;
 import java.util.Properties;
 import java.util.Random;
 
-//localhost:9092 400 inputs/dataset1_abt inputs/dataset2_buy
+//localhost:9092 20 inputs/dataset1_abt true 0.1
 public class KafkaDataStreamingProducerByTime {
 
     public static void main(String[] args) throws Exception {
