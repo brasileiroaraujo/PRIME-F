@@ -6,6 +6,7 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.apache.flink.api.common.accumulators.IntCounter;
 import org.apache.flink.api.common.functions.FilterFunction;
 import org.apache.flink.api.common.functions.FlatMapFunction;
 import org.apache.flink.api.common.functions.MapFunction;
@@ -33,6 +34,8 @@ import tokens.KeywordGeneratorImpl;
 
 //localhost:9092 localhost:2181 20 200 20 outputs/
 public class PRIMEBigdataGraph2 {
+	
+	private IntCounter numLines = new IntCounter();
 	
 	public static void main(String[] args) throws Exception {
 		
@@ -93,7 +96,6 @@ public class PRIMEBigdataGraph2 {
 			}
 		}).timeWindow(Time.seconds(Integer.parseInt(args[3])), Time.seconds(Integer.parseInt(args[4])));//define the window
 		
-		
 		SingleOutputStreamOperator<ClusterGraph> graph = entityBlocks.reduce(new ReduceFunction<ClusterGraph>() {
 			
 			@Override
@@ -118,10 +120,16 @@ public class PRIMEBigdataGraph2 {
 			public void flatMap(ClusterGraph value, Collector<Tuple2<String, Double>> out) throws Exception {
 				for (NodeGraph s : value.getEntitiesFromSource()) {
 					for (NodeGraph t : value.getEntitiesFromTarget()) {
-						out.collect(new Tuple2<String, Double>(s.getId() + "-" + t.getId(), 1.0/(value.size()/2)));
+						out.collect(new Tuple2<String, Double>(s.getId() + "-" + t.getId(), getSimilarity(value.size())));
 					}
 				}
 				
+			}
+
+			private Double getSimilarity(int size) {
+				double sim = 1.0/(size/2);
+				//double sim = 1.0 - ((size-2)/50);
+				return sim;
 			}
 		}).keyBy(0).timeWindow(Time.seconds(Integer.parseInt(args[3])), Time.seconds(Integer.parseInt(args[4]))).sum(1);//group by the tuple field "0" and sum up tuple field "1"
 		

@@ -27,7 +27,7 @@ public class FindingEntity {
 			//entity source
 			System.out.println("---- Entity 1 ----");
 			EntityListSource = (ArrayList<EntityProfile>) ois1.readObject();
-			EntityProfile entity1 = EntityListSource.get(400);//lembre de diminuir 1 do id (lista comeca por 0)
+			EntityProfile entity1 = EntityListSource.get(475);//lembre de diminuir 1 do id (lista comeca por 0)
 //			System.out.println(entity1.getEntityUrl());
 			for (Attribute att : entity1.getAttributes()) {
 				System.out.println(att.getName() + ": " + att.getValue());
@@ -38,7 +38,7 @@ public class FindingEntity {
 			//entity target
 			System.out.println("---- Entity 2 ----");
 			EntityListTarget = (ArrayList<EntityProfile>) ois2.readObject();
-			EntityProfile entity2 = EntityListTarget.get(627);//831,619,829,865,776,896,946,615,642//lembre de diminuir 1 do id (lista comeca por 0)
+			EntityProfile entity2 = EntityListTarget.get(619);//831,619,829,865,776,896,946,615,642//lembre de diminuir 1 do id (lista comeca por 0)
 //			System.out.println(entity2.getEntityUrl());
 			for (Attribute att : entity2.getAttributes()) {
 				System.out.println(att.getName() + ": " + att.getValue());
