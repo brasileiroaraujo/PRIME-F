@@ -13,6 +13,7 @@ public class NodeGraph {
 	private int id;
 	private Set<Integer> blocks;
 	private TreeSet<TupleSimilarity> neighbors;
+	private int increment; //increment that sent this entity
 	private boolean isSource;
 	private boolean marked;
 //	private double sumWeight = 0.0;
@@ -44,6 +45,20 @@ public class NodeGraph {
 		this.maxNumberOfNeighbors = maxNumberOfNeighbors;
 		this.startTime = System.currentTimeMillis();
 		this.marked = markedToCompare;
+	}
+	
+	public NodeGraph(int token, int id, Set<Integer> blocks, boolean isSource , int maxNumberOfNeighbors,
+			boolean markedToCompare, int increment) {
+		super();
+		this.token = token;
+		this.id = id;
+		this.blocks = blocks;
+		this.neighbors = new TreeSet<TupleSimilarity>();
+		this.isSource = isSource;
+		this.maxNumberOfNeighbors = maxNumberOfNeighbors;
+		this.startTime = System.currentTimeMillis();
+		this.marked = markedToCompare;
+		this.increment = increment;
 	}
 	
 	
@@ -123,10 +138,13 @@ public class NodeGraph {
 
 	
 	public void addNeighbor(TupleSimilarity neighbor) {
-		if (this.neighbors.contains(neighbor)) {
-			this.neighbors.remove(neighbor);
-			this.neighbors.add(neighbor);
-		} else {
+//		if (this.neighbors.contains(neighbor)) {
+//			this.neighbors.remove(neighbor);
+//			this.neighbors.add(neighbor);
+//		} else {
+//			this.neighbors.add(neighbor);
+//		}
+		if (!this.neighbors.contains(neighbor)) {
 			this.neighbors.add(neighbor);
 		}
 		
@@ -265,6 +283,14 @@ public class NodeGraph {
 
 	public void setStartTime(long startTime) {
 		this.startTime = startTime;
+	}
+
+	public int getIncrement() {
+		return increment;
+	}
+
+	public void setIncrement(int increment) {
+		this.increment = increment;
 	}
 
 	

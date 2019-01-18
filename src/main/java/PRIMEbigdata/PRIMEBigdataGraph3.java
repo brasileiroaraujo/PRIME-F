@@ -15,6 +15,7 @@ import org.apache.flink.api.java.functions.KeySelector;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSink;
+import org.apache.flink.streaming.api.datastream.KeyedStream;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.datastream.WindowedStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
@@ -33,7 +34,7 @@ import tokens.KeywordGenerator;
 import tokens.KeywordGeneratorImpl;
 
 //localhost:9092 localhost:2181 20 200 20 outputs/
-public class PRIMEBigdataGraph2 {
+public class PRIMEBigdataGraph3 {
 	
 	private IntCounter numLines = new IntCounter();
 	
@@ -67,16 +68,16 @@ public class PRIMEBigdataGraph2 {
 					}
 				}
 				
-				if ((se.isSource() && se.getKey() == 30) || (!se.isSource() && se.getKey() == 426)) {
+				if ((se.isSource() && se.getKey() == 514) || (!se.isSource() && se.getKey() == 970)) {
 					System.out.println();
 				}
 
 				for (Integer tk : cleanTokens) {
-					ClusterGraph cluster = new ClusterGraph(tk);
+					ClusterGraph cluster = new ClusterGraph(tk, se.getIncrementID());
 					if (se.isSource()) {
-						cluster.addInSource(new NodeGraph(tk, se.getKey(), cleanTokens, se.isSource(), Integer.parseInt(args[2]), true));
+						cluster.addInSource(new NodeGraph(tk, se.getKey(), cleanTokens, se.isSource(), Integer.parseInt(args[2]), true, se.getIncrementID()));
 					} else {
-						cluster.addInTarget(new NodeGraph(tk, se.getKey(), cleanTokens, se.isSource(), Integer.parseInt(args[2]), true));
+						cluster.addInTarget(new NodeGraph(tk, se.getKey(), cleanTokens, se.isSource(), Integer.parseInt(args[2]), true, se.getIncrementID()));
 					}
 					output.collect(cluster);
 				}
@@ -108,7 +109,7 @@ public class PRIMEBigdataGraph2 {
 			
 			@Override
 			public ClusterGraph reduce(ClusterGraph c1, ClusterGraph c2) throws Exception {
-				c1.merge(c2);
+				c1.merge2(c2);
 				return c1;
 			}
 		});//.timeWindowAll(Time.seconds(Integer.parseInt(args[3])), Time.seconds(Integer.parseInt(args[4])));
@@ -118,21 +119,23 @@ public class PRIMEBigdataGraph2 {
 			
 			@Override
 			public boolean filter(ClusterGraph c) throws Exception {
-				return c.size() < 100;
+				return c.size() < 500;
 			}
 		});
 		
 		//Generate a pair of entities with a number 1 associated. Summarizing, this step counts (sums) the occurrences of each entity pair. The higher (number of occurrences) the better (chances to be match).
-		SingleOutputStreamOperator<Tuple2<String, Double>> entityPairs = filterBlocking.flatMap(new FlatMapFunction<ClusterGraph, Tuple2<String, Double>>() {
+		SingleOutputStreamOperator<Tuple2<String, Double>> entityPairs = graph.flatMap(new FlatMapFunction<ClusterGraph, Tuple2<String, Double>>() {
 
 			@Override
 			public void flatMap(ClusterGraph value, Collector<Tuple2<String, Double>> out) throws Exception {
 				for (NodeGraph s : value.getEntitiesFromSource()) {
 					for (NodeGraph t : value.getEntitiesFromTarget()) {
-						if (s.getId() == 30 && t.getId() == 426) {
+						if (s.getId() == 514 && t.getId() == 970) {
 							System.out.println();
 						}
-						out.collect(new Tuple2<String, Double>(s.getId() + "-" + t.getId(), getDirectSimilarity()));//getDirectSimilarity(value.size())));
+//						if (s.getIncrement() == value.getCurrentIncrement() || t.getIncrement() == value.getCurrentIncrement()) {
+							out.collect(new Tuple2<String, Double>(s.getId() + "-" + t.getId(), getDirectSimilarity()));//getSensibleSimilarity(value.size())));//getDirectSimilarity()));
+//						}
 					}
 				}
 				
@@ -155,6 +158,9 @@ public class PRIMEBigdataGraph2 {
 			public NodeGraph map(Tuple2<String, Double> value) throws Exception {
 				String[] pair = value.f0.split("-");
 				NodeGraph node = new NodeGraph(Integer.parseInt(pair[0]), Integer.parseInt(args[2]));
+				if (Integer.parseInt(pair[0]) == 514 && Integer.parseInt(pair[1]) == 970) {
+					System.out.println();
+				}
 				node.addNeighbor(new TupleSimilarity(Integer.parseInt(pair[1]), value.f1.doubleValue()));
 				return node;
 			}
@@ -174,7 +180,7 @@ public class PRIMEBigdataGraph2 {
 			@Override
 			public NodeGraph reduce(NodeGraph n1, NodeGraph n2) throws Exception {
 				for (TupleSimilarity neighbors2 : n2.getNeighbors()) {
-					if (n1.getId() == 30 && neighbors2.getKey() == 426) {
+					if (n1.getId() == 514 /*&& neighbors2.getKey() == 970*/) {
 						System.out.println();
 					}
 					n1.addNeighbor(neighbors2);
@@ -187,7 +193,10 @@ public class PRIMEBigdataGraph2 {
 		DataStreamSink<String> output = prunedGraph.rebalance().map(new MapFunction<NodeGraph, String>() {
 			@Override
 			public String map(NodeGraph node) throws Exception {
-				node.pruningWNP();
+//				if (node.getId() == 30) {
+//					System.out.println();
+//				}
+//				node.pruningWNP();
 				return node.getId() + ">" + node.toString();
 			}
 		}).writeAsText(args[5]);

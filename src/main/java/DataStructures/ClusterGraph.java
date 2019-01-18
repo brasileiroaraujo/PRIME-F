@@ -1,6 +1,7 @@
 package DataStructures;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -8,12 +9,24 @@ public class ClusterGraph {
 	private int tokenkey;
 	private Set<NodeGraph> entitiesFromSource;
 	private Set<NodeGraph> entitiesFromTarget;
+//	private Set<String> comparisonsCount;
+	private int currentIncrement;
+	
+	public ClusterGraph(int tokenkey, int increment) {
+		super();
+		this.tokenkey = tokenkey;
+		this.entitiesFromSource = new HashSet<NodeGraph>();
+		this.entitiesFromTarget = new HashSet<NodeGraph>();
+		this.currentIncrement = increment;
+//		this.comparisonsCount = new HashSet<String>();
+	}
 	
 	public ClusterGraph(int tokenkey) {
 		super();
 		this.tokenkey = tokenkey;
 		this.entitiesFromSource = new HashSet<NodeGraph>();
 		this.entitiesFromTarget = new HashSet<NodeGraph>();
+//		this.comparisonsCount = new HashSet<String>();
 	}
 	
 //	public ClusterGraph(int tokenkey, Set<Node> storedCollection, Set<Node> newCollection) {
@@ -100,6 +113,55 @@ public class ClusterGraph {
 		
 	}
 	
+	public void merge2(ClusterGraph c2) {
+//		for (NodeGraph s_c1 : entitiesFromSource) {
+//			for (NodeGraph t_c2 : c2.getEntitiesFromTarget()) {
+//				if (comparisonsCount.containsKey(s_c1.getId() + "-" + t_c2.getId())) {
+//					comparisonsCount.replace(s_c1.getId() + "-" + t_c2.getId(), comparisonsCount.get(s_c1.getId() + "-" + t_c2.getId()) + 1);
+//				} else {
+//					comparisonsCount.put(s_c1.getId() + "-" + t_c2.getId(), 1);
+//				}
+//			}
+//		}
+//		
+//		for (NodeGraph s_c2 : c2.getEntitiesFromSource()) {
+//			for (NodeGraph t_c1 : entitiesFromTarget) {
+//				if (comparisonsCount.containsKey(s_c2.getId() + "-" + t_c1.getId())) {
+//					comparisonsCount.replace(s_c2.getId() + "-" + t_c1.getId(), comparisonsCount.get(s_c2.getId() + "-" + t_c1.getId()) + 1);
+//				} else {
+//					comparisonsCount.put(s_c2.getId() + "-" + t_c1.getId(), 1);
+//				}
+//			}
+//		}
+		
+		currentIncrement = Math.max(currentIncrement, c2.getCurrentIncrement());
+		entitiesFromSource.addAll(c2.getEntitiesFromSource());
+		entitiesFromTarget.addAll(c2.getEntitiesFromTarget());
+		
+//		for (NodeGraph s : entitiesFromSource) {
+//			for (NodeGraph t : entitiesFromTarget) {
+//				comparisonsCount.add(s+"-"+t);
+//			}
+//		}
+		
+	}
+	
+//	public Set<String> getComparisonsCount() {
+//		return comparisonsCount;
+//	}
+//
+//	public void setComparisonsCount(Set<String> comparisonsCount) {
+//		this.comparisonsCount = comparisonsCount;
+//	}
+
+	public int getCurrentIncrement() {
+		return currentIncrement;
+	}
+
+	public void setCurrentIncrement(int currentIncrement) {
+		this.currentIncrement = currentIncrement;
+	}
+
 	private double calculateSimilarity(Integer blockKey, Set<Integer> ent1, Set<Integer> ent2) {
 		int minSize = Math.min(ent1.size() - 1, ent2.size() - 1);//<<<<< min 
 		Set<Integer> intersect = new HashSet<Integer>(ent1);
@@ -117,6 +179,7 @@ public class ClusterGraph {
 			return 0;
 		}
 	}
+
 
 	
 }
