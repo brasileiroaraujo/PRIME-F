@@ -119,7 +119,8 @@ public class PRIMEBigdataGraph3 {
 			
 			@Override
 			public boolean filter(ClusterGraph c) throws Exception {
-				return c.size() < 500;
+				return true;
+				//return c.size() < 500;
 			}
 		});
 		
@@ -134,11 +135,15 @@ public class PRIMEBigdataGraph3 {
 							System.out.println();
 						}
 //						if (s.getIncrement() == value.getCurrentIncrement() || t.getIncrement() == value.getCurrentIncrement()) {
-							out.collect(new Tuple2<String, Double>(s.getId() + "-" + t.getId(), getDirectSimilarity()));//getSensibleSimilarity(value.size())));//getDirectSimilarity()));
+							out.collect(new Tuple2<String, Double>(s.getId() + "-" + t.getId(), getPartialySimilarity(s.getBlocks().size(), t.getBlocks().size())));//getSensibleSimilarity(value.size())));//getDirectSimilarity()));
 //						}
 					}
 				}
 				
+			}
+
+			private Double getPartialySimilarity(int sizeS, int sizeT) {
+				return 1.0/(Math.min(sizeS, sizeT));//ti's possible use max() also, depending the strategy.
 			}
 
 			private Double getSensibleSimilarity(int size) {
@@ -196,7 +201,7 @@ public class PRIMEBigdataGraph3 {
 //				if (node.getId() == 30) {
 //					System.out.println();
 //				}
-//				node.pruningWNP();
+				node.pruningWNP();
 				return node.getId() + ">" + node.toString();
 			}
 		}).writeAsText(args[5]);
