@@ -20,7 +20,7 @@ import org.apache.flink.streaming.api.datastream.WindowedStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.windowing.time.Time;
 import org.apache.flink.streaming.api.windowing.windows.TimeWindow;
-import org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumer082;
+import org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumer;
 import org.apache.flink.streaming.util.serialization.SimpleStringSchema;
 import org.apache.flink.util.Collector;
 
@@ -48,7 +48,7 @@ public class PRIMEBigdataGraph2 {
 		properties.setProperty("zookeeper.connect", args[1]);
 		properties.setProperty("group.id", "test");
 		
-		DataStream<String> lines = env.addSource(new FlinkKafkaConsumer082<>("mytopic", new SimpleStringSchema(), properties));
+		DataStream<String> lines = env.addSource(new FlinkKafkaConsumer("mytopic", new SimpleStringSchema(), properties));
 		
 		// the rebelance call is causing a repartitioning of the data so that all machines
 		DataStream<EntityProfile> entities = lines.rebalance().map(s -> new EntityProfile(s));

@@ -12,11 +12,13 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 
 import DataStructures.Attribute;
 import DataStructures.EntityProfile;
+import DataStructures.StatisticalSummarization;
 import info.debatty.java.lsh.MinHash;
 import tokens.KeywordGenerator;
 import tokens.KeywordGeneratorImpl;
@@ -40,15 +42,18 @@ public class KafkaDataStreamingProducerByTimeAttSelection {
         //CHOOSE THE INPUT PATHS
         String INPUT_PATH1 = args[2];
         String INPUT_PATH2 = args[3];
-        boolean IS_SOURCE = Boolean.parseBoolean(args[4]);
-        double percentageOfEntitiesPerIncrement = Double.parseDouble(args[5]); //number of entities per increment based on the percentage. e.g: 0,1 is 10% 
+        double percentageOfEntitiesPerIncrement = Double.parseDouble(args[4]); //number of entities per increment based on the percentage. e.g: 0,1 is 10% 
         int currentIncrement = 0;
         
         int currentTokenID = 0;
         HashMap<String, Integer> tokensIDs = new HashMap<String, Integer>();
         HashMap<String, Set<Integer>> attributeMapSource = new HashMap<String, Set<Integer>>();
         HashMap<String, Set<Integer>> attributeMapTarget = new HashMap<String, Set<Integer>>();
-        Set<String> attributesSource = new HashSet<String>();
+        HashMap<Integer, Integer> itemsFrequencySource = new HashMap<Integer, Integer>();
+        HashMap<Integer, Integer> itemsFrequencyTarget = new HashMap<Integer, Integer>();
+        double totalTokensSource = 0;
+        double totalTokensTarget = 0;
+//        Set<String> attributesSource = new HashSet<String>();
         ArrayList<EntityProfile> entitiesAfterAttSelection = new ArrayList<EntityProfile>();
         
 
@@ -95,12 +100,16 @@ public class KafkaDataStreamingProducerByTimeAttSelection {
 								tokensIDs.put(tk, currentTokenID++);
 							}
 							
+							itemsFrequencySource.put(tokensIDs.get(tk), (itemsFrequencySource.getOrDefault(tokensIDs.get(tk), 0) + 1));
+							
 							if (attributeMapSource.containsKey(att.getName())) {
 								attributeMapSource.get(att.getName()).add(tokensIDs.get(tk));
 							} else {
 								attributeMapSource.put(att.getName(), new HashSet<Integer>());
 								attributeMapSource.get(att.getName()).add(tokensIDs.get(tk));
 							}
+							
+							totalTokensSource++;
 						}
 					}
 				}
@@ -122,17 +131,25 @@ public class KafkaDataStreamingProducerByTimeAttSelection {
 								tokensIDs.put(tk, currentTokenID++);
 							}
 							
+							itemsFrequencyTarget.put(tokensIDs.get(tk), (itemsFrequencyTarget.getOrDefault(tokensIDs.get(tk), 0) + 1));
+							
 							if (attributeMapTarget.containsKey(att.getName())) {
 								attributeMapTarget.get(att.getName()).add(tokensIDs.get(tk));
 							} else {
 								attributeMapTarget.put(att.getName(), new HashSet<Integer>());
 								attributeMapTarget.get(att.getName()).add(tokensIDs.get(tk));
 							}
+							
+							totalTokensTarget++;
 						}
 					}
 				}
 				uniqueIdTarget++;
 			}
+			
+			//blacklist based on entropy
+			Set<Integer> blackListSource = StatisticalSummarization.getBlackListEntropy(attributeMapSource, itemsFrequencySource, totalTokensSource);
+			Set<Integer> blackListTarget = StatisticalSummarization.getBlackListEntropy(attributeMapTarget, itemsFrequencyTarget, totalTokensTarget);
 			
 			//generate the MinHash
 			HashMap<String, int[]> attributeHashesSource = new HashMap<String, int[]>();
@@ -149,23 +166,25 @@ public class KafkaDataStreamingProducerByTimeAttSelection {
 			ArrayList<String> attFromSource = new ArrayList<String>(attributeHashesSource.keySet());
 			ArrayList<String> attFromTarget = new ArrayList<String>(attributeHashesTarget.keySet());
 			double[][] similarityMatrix = new double[attFromSource.size()][attFromTarget.size()];
-			double similaritySum = 0;
+			DescriptiveStatistics statistics = new DescriptiveStatistics();
 			for (int i = 0; i < attFromSource.size(); i++) {
 				for (int j = 0; j < attFromTarget.size(); j++) {
 					double similarity = minhash.similarity(attributeHashesSource.get(attFromSource.get(i)), attributeHashesTarget.get(attFromTarget.get(j)));
-					similaritySum += similarity;
+					statistics.addValue(similarity);
 					similarityMatrix[i][j] = similarity;
 				}
 			}
 			
 			//attribute selection (based on the matrix evaluation)
-			double average = similaritySum/(attFromSource.size() * attFromTarget.size());
-			ArrayList<Integer> blackListSource = new ArrayList<Integer>();
-			ArrayList<Integer> blackListTarget = new ArrayList<Integer>();
+			double average = statistics.getMean();//similaritySum/(attFromSource.size() * attFromTarget.size());
+//			double median = statistics.getPercentile(50); //the percentile in 50% represents the median
+			
+//			ArrayList<Integer> blackListSource = new ArrayList<Integer>();
+//			ArrayList<Integer> blackListTarget = new ArrayList<Integer>();
 			for (int i = 0; i < attFromSource.size(); i++) {
 				int count = 0;
 				for (int j = 0; j < attFromTarget.size(); j++) {
-					if (similarityMatrix[i][j] >= average) {
+					if (similarityMatrix[i][j] >= average) { //use average or median
 						count++;
 					}
 				}
@@ -190,22 +209,25 @@ public class KafkaDataStreamingProducerByTimeAttSelection {
 			//removing the bad attributes
 			for (EntityProfile e : EntityListSource) {
 				for (Integer index : blackListSource) {
-					e.getAttributes().remove(attFromSource.get(index));
+					Attribute att = findAttribute(e.getAttributes(), attFromSource.get(index));
+					e.getAttributes().remove(att);
 				}
 				entitiesAfterAttSelection.add(e);
 			}
 			for (EntityProfile e : EntityListTarget) {
 				for (Integer index : blackListTarget) {
-					e.getAttributes().remove(attFromTarget.get(index));//CORRIGIR ISSO AQUI N VAI REMOVER UM ATTRIBUTO PELO NOME
+					Attribute att = findAttribute(e.getAttributes(), attFromTarget.get(index));
+					e.getAttributes().remove(att);
 				}
 				entitiesAfterAttSelection.add(e);
 			}
+
 				
 			
 			//Send the entities (without 'bad' attributes)
 			for (EntityProfile entityProfile : entitiesAfterAttSelection) {
-				ProducerRecord<String, String> record = new ProducerRecord<>(topicName, entityProfile.getStandardFormat());
-	            producer.send(record);
+//				ProducerRecord<String, String> record = new ProducerRecord<>(topicName, entityProfile.getStandardFormat());
+//	            producer.send(record);
 			}
 			
 			incrementControlerSource += (int)Math.ceil(percentageOfEntitiesPerIncrement * EntityListSource.size());
@@ -229,7 +251,17 @@ public class KafkaDataStreamingProducerByTimeAttSelection {
 //        throw new Exception();
     }
     
-    private static Set<String> generateTokens(String string) {
+    private static Attribute findAttribute(Set<Attribute> attributes, String string) {
+		for (Attribute attribute : attributes) {
+			if (attribute.getName().equalsIgnoreCase(string)) {
+				return attribute;
+			}
+		}
+		return null;
+	}
+
+
+	private static Set<String> generateTokens(String string) {
 		Pattern p = Pattern.compile("[^a-zA-Z\\s0-9]");
 		Matcher m = p.matcher("");
 		m.reset(string);
