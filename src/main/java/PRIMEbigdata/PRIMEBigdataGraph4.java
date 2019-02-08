@@ -20,7 +20,9 @@ import org.apache.flink.streaming.api.datastream.KeyedStream;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.datastream.WindowedStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
+import org.apache.flink.streaming.api.windowing.assigners.SlidingProcessingTimeWindows;
 import org.apache.flink.streaming.api.windowing.time.Time;
+import org.apache.flink.streaming.api.windowing.windows.GlobalWindow;
 import org.apache.flink.streaming.api.windowing.windows.TimeWindow;
 import org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumer;
 import org.apache.flink.streaming.util.serialization.SimpleStringSchema;
@@ -35,7 +37,7 @@ import tokens.KeywordGenerator;
 import tokens.KeywordGeneratorImpl;
 
 //localhost:9092 localhost:2181 20 200 20 outputs/
-public class PRIMEBigdataGraph3 {
+public class PRIMEBigdataGraph4 {
 	
 	private IntCounter numLines = new IntCounter();
 	
@@ -101,17 +103,13 @@ public class PRIMEBigdataGraph3 {
 		});
 		
 		
-		//Applies the token as a key.
-		WindowedStream<ClusterGraph, Integer, TimeWindow> entityBlocks = streamOfPairs.keyBy(new KeySelector<ClusterGraph, Integer>() {
+		//Applies the token as a key. and Group the entities with the same token (blocking using the token as a key).
+		SingleOutputStreamOperator<ClusterGraph> graph = streamOfPairs.keyBy(new KeySelector<ClusterGraph, Integer>() {
 			@Override
 			public Integer getKey(ClusterGraph cluster) throws Exception {
 				return cluster.getTokenkey();
 			}
-		}).timeWindow(Time.seconds(Integer.parseInt(args[3])), Time.seconds(Integer.parseInt(args[4])));//define the window
-		
-		
-		//Group the entities with the same token (blocking using the token as a key).
-		SingleOutputStreamOperator<ClusterGraph> graph = entityBlocks.reduce(new ReduceFunction<ClusterGraph>() {
+		}).timeWindow(Time.seconds(Integer.parseInt(args[3]))).reduce(new ReduceFunction<ClusterGraph>() {
 			
 			@Override
 			public ClusterGraph reduce(ClusterGraph c1, ClusterGraph c2) throws Exception {
@@ -126,7 +124,7 @@ public class PRIMEBigdataGraph3 {
 			@Override
 			public boolean filter(ClusterGraph c) throws Exception {
 				return true;
-//				return c.size() < 200;
+				//return c.size() < 500;
 			}
 		});
 		
@@ -160,7 +158,7 @@ public class PRIMEBigdataGraph3 {
 			private Double getDirectSimilarity() {
 				return 1.0;
 			}
-		}).keyBy(0).timeWindow(Time.seconds(Integer.parseInt(args[3])), Time.seconds(Integer.parseInt(args[4]))).sum(1);//group by the tuple field "0" and sum up tuple field "1"
+		}).keyBy(0).sum(1);//.keyBy(0).timeWindow(Time.seconds(Integer.parseInt(args[3])), Time.seconds(Integer.parseInt(args[4]))).sum(1);//group by the tuple field "0" and sum up tuple field "1"
 		
 		//Generates a pair where the key is the entity from source.
 		SingleOutputStreamOperator<NodeGraph> groupedGraph = entityPairs.map(new MapFunction<Tuple2<String,Double>, NodeGraph>() {
@@ -178,12 +176,12 @@ public class PRIMEBigdataGraph3 {
 		});
 		
 		//Groups the entities from target (neighbors) associated with a particular entity from source.
-		WindowedStream<NodeGraph, Integer, TimeWindow> keyedGraph = groupedGraph.keyBy(new KeySelector<NodeGraph, Integer>() {
+		KeyedStream<NodeGraph, Integer> keyedGraph = groupedGraph.keyBy(new KeySelector<NodeGraph, Integer>() {
 			@Override
 			public Integer getKey(NodeGraph node) throws Exception {
 				return node.getId();
 			}
-		}).timeWindow(Time.seconds(Integer.parseInt(args[3])), Time.seconds(Integer.parseInt(args[4])));//define the window;;
+		});//.timeWindow(Time.seconds(Integer.parseInt(args[3])), Time.seconds(Integer.parseInt(args[4])));//define the window;;
 		
 		
 		SingleOutputStreamOperator<NodeGraph> prunedGraph = keyedGraph.reduce(new ReduceFunction<NodeGraph>() {
