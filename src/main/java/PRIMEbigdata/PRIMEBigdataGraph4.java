@@ -109,7 +109,7 @@ public class PRIMEBigdataGraph4 {
 			public Integer getKey(ClusterGraph cluster) throws Exception {
 				return cluster.getTokenkey();
 			}
-		}).timeWindow(Time.seconds(Integer.parseInt(args[3]))).reduce(new ReduceFunction<ClusterGraph>() {
+		}).timeWindow(Time.seconds(Integer.parseInt(args[3])), Time.seconds(Integer.parseInt(args[4]))).reduce(new ReduceFunction<ClusterGraph>() {
 			
 			@Override
 			public ClusterGraph reduce(ClusterGraph c1, ClusterGraph c2) throws Exception {
@@ -123,13 +123,18 @@ public class PRIMEBigdataGraph4 {
 			
 			@Override
 			public boolean filter(ClusterGraph c) throws Exception {
-				return true;
-				//return c.size() < 500;
+				boolean filterActive = Boolean.parseBoolean(args[7]);
+				if (filterActive) {
+					int filterSize = Integer.parseInt(args[8]);
+					return c.size() < filterSize;
+				} else {
+					return true;
+				}
 			}
 		});
 		
 		//Generate a pair of entities with a number 1 associated. Summarizing, this step counts (sums) the occurrences of each entity pair. The higher (number of occurrences) the better (chances to be match).
-		SingleOutputStreamOperator<Tuple2<String, Double>> entityPairs = graph.flatMap(new FlatMapFunction<ClusterGraph, Tuple2<String, Double>>() {
+		SingleOutputStreamOperator<Tuple2<String, Double>> entityPairs = filterBlocking.flatMap(new FlatMapFunction<ClusterGraph, Tuple2<String, Double>>() {
 
 			@Override
 			public void flatMap(ClusterGraph value, Collector<Tuple2<String, Double>> out) throws Exception {
@@ -158,7 +163,7 @@ public class PRIMEBigdataGraph4 {
 			private Double getDirectSimilarity() {
 				return 1.0;
 			}
-		}).keyBy(0).sum(1);//.keyBy(0).timeWindow(Time.seconds(Integer.parseInt(args[3])), Time.seconds(Integer.parseInt(args[4]))).sum(1);//group by the tuple field "0" and sum up tuple field "1"
+		}).keyBy(0).timeWindow(Time.seconds(Integer.parseInt(args[3]))).sum(1);//.keyBy(0).sum(1);//.keyBy(0).timeWindow(Time.seconds(Integer.parseInt(args[3])), Time.seconds(Integer.parseInt(args[4]))).sum(1);//group by the tuple field "0" and sum up tuple field "1"
 		
 		//Generates a pair where the key is the entity from source.
 		SingleOutputStreamOperator<NodeGraph> groupedGraph = entityPairs.map(new MapFunction<Tuple2<String,Double>, NodeGraph>() {
@@ -176,12 +181,12 @@ public class PRIMEBigdataGraph4 {
 		});
 		
 		//Groups the entities from target (neighbors) associated with a particular entity from source.
-		KeyedStream<NodeGraph, Integer> keyedGraph = groupedGraph.keyBy(new KeySelector<NodeGraph, Integer>() {
+		WindowedStream<NodeGraph, Integer, TimeWindow> keyedGraph = groupedGraph.keyBy(new KeySelector<NodeGraph, Integer>() {
 			@Override
 			public Integer getKey(NodeGraph node) throws Exception {
 				return node.getId();
 			}
-		});//.timeWindow(Time.seconds(Integer.parseInt(args[3])), Time.seconds(Integer.parseInt(args[4])));//define the window;;
+		}).timeWindow(Time.seconds(Integer.parseInt(args[3])));//.timeWindow(Time.seconds(Integer.parseInt(args[3])), Time.seconds(Integer.parseInt(args[4])));//define the window;;
 		
 		
 		SingleOutputStreamOperator<NodeGraph> prunedGraph = keyedGraph.reduce(new ReduceFunction<NodeGraph>() {

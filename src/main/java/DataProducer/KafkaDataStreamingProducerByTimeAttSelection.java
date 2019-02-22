@@ -43,6 +43,7 @@ public class KafkaDataStreamingProducerByTimeAttSelection {
         String INPUT_PATH1 = args[2];
         String INPUT_PATH2 = args[3];
         double percentageOfEntitiesPerIncrement = Double.parseDouble(args[4]); //number of entities per increment based on the percentage. e.g: 0,1 is 10% 
+        boolean executeAttSelection = Boolean.parseBoolean(args[5]); //if will be executed the attribute selection, or not.
         int currentIncrement = 0;
         
         int currentTokenID = 0;
@@ -55,6 +56,9 @@ public class KafkaDataStreamingProducerByTimeAttSelection {
         double totalTokensTarget = 0;
 //        Set<String> attributesSource = new HashSet<String>();
         ArrayList<EntityProfile> entitiesAfterAttSelection = new ArrayList<EntityProfile>();
+        
+        //Set of all tokens to be generated
+		Set<String> allTokens = new HashSet<String>();
         
 
         KafkaProducer<String, String> producer = new KafkaProducer<>(props);
@@ -207,27 +211,35 @@ public class KafkaDataStreamingProducerByTimeAttSelection {
 			}
 			
 			//removing the bad attributes
-			for (EntityProfile e : EntityListSource) {
-				for (Integer index : blackListSource) {
-					Attribute att = findAttribute(e.getAttributes(), attFromSource.get(index));
-					e.getAttributes().remove(att);
+			if (executeAttSelection) {
+				for (EntityProfile e : EntityListSource) {
+					for (Integer index : blackListSource) {
+						Attribute att = findAttribute(e.getAttributes(), attFromSource.get(index));
+						e.getAttributes().remove(att);
+					}
+					entitiesAfterAttSelection.add(e);
 				}
-				entitiesAfterAttSelection.add(e);
-			}
-			for (EntityProfile e : EntityListTarget) {
-				for (Integer index : blackListTarget) {
-					Attribute att = findAttribute(e.getAttributes(), attFromTarget.get(index));
-					e.getAttributes().remove(att);
+				for (EntityProfile e : EntityListTarget) {
+					for (Integer index : blackListTarget) {
+						Attribute att = findAttribute(e.getAttributes(), attFromTarget.get(index));
+						e.getAttributes().remove(att);
+					}
+					entitiesAfterAttSelection.add(e);
 				}
-				entitiesAfterAttSelection.add(e);
+			} else {
+				entitiesAfterAttSelection.addAll(EntityListSource);
+				entitiesAfterAttSelection.addAll(EntityListTarget);
 			}
-
-				
+			
 			
 			//Send the entities (without 'bad' attributes)
 			for (EntityProfile entityProfile : entitiesAfterAttSelection) {
-//				ProducerRecord<String, String> record = new ProducerRecord<>(topicName, entityProfile.getStandardFormat());
-//	            producer.send(record);
+				for (Attribute att : entityProfile.getAttributes()) {
+					KeywordGenerator kw = new KeywordGeneratorImpl();
+					allTokens.addAll(kw.generateKeyWords(att.getValue()));
+				}
+				ProducerRecord<String, String> record = new ProducerRecord<>(topicName, entityProfile.getStandardFormat());
+	            producer.send(record);
 			}
 			
 			incrementControlerSource += (int)Math.ceil(percentageOfEntitiesPerIncrement * EntityListSource.size());
@@ -247,6 +259,7 @@ public class KafkaDataStreamingProducerByTimeAttSelection {
         int minutos = data.get(Calendar.MINUTE);
         int segundos = data.get(Calendar.SECOND);
         System.out.println(horas + ":" + minutos + ":" + segundos);
+        System.out.println("Number of possible tokens: " + allTokens.size());
         
 //        throw new Exception();
     }
