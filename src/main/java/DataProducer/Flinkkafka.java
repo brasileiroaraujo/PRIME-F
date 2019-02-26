@@ -5,7 +5,7 @@ import java.util.Properties;
 import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
-import org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumer;
+import org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumer011;
 import org.apache.flink.streaming.util.serialization.SimpleStringSchema;
 
 
@@ -20,7 +20,7 @@ public class Flinkkafka {
 		properties.setProperty("zookeeper.connect", "localhost:2181");
 		properties.setProperty("group.id", "test");
 		
-		DataStream<String> messageStream = env.addSource(new FlinkKafkaConsumer("mytopic", new SimpleStringSchema(), properties));
+		DataStream<String> messageStream = env.addSource(new FlinkKafkaConsumer011("mytopic", new SimpleStringSchema(), properties));
 		
 		// print() will write the contents of the stream to the TaskManager's standard out stream
 		// the rebelance call is causing a repartitioning of the data so that all machines

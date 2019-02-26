@@ -1,39 +1,12 @@
 package PRIMEbigdata;
 
-import java.util.HashSet;
 import java.util.Properties;
-import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import org.apache.flink.api.common.accumulators.IntCounter;
-import org.apache.flink.api.common.functions.FilterFunction;
-import org.apache.flink.api.common.functions.FlatMapFunction;
-import org.apache.flink.api.common.functions.MapFunction;
-import org.apache.flink.api.common.functions.ReduceFunction;
-import org.apache.flink.api.java.ExecutionEnvironment;
-import org.apache.flink.api.java.functions.KeySelector;
-import org.apache.flink.api.java.tuple.Tuple;
-import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.streaming.api.datastream.DataStream;
-import org.apache.flink.streaming.api.datastream.DataStreamSink;
-import org.apache.flink.streaming.api.datastream.KeyedStream;
-import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
-import org.apache.flink.streaming.api.datastream.WindowedStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
-import org.apache.flink.streaming.api.windowing.time.Time;
-import org.apache.flink.streaming.api.windowing.windows.TimeWindow;
-import org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumer;
+import org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumer011;
 import org.apache.flink.streaming.util.serialization.SimpleStringSchema;
-import org.apache.flink.util.Collector;
-
-import DataStructures.Attribute;
-import DataStructures.ClusterGraph;
-import DataStructures.EntityProfile;
-import DataStructures.NodeGraph;
-import DataStructures.TupleSimilarity;
-import tokens.KeywordGenerator;
-import tokens.KeywordGeneratorImpl;
 
 //localhost:9092 localhost:2181 20 200 20 outputs/
 public class StringExample {
@@ -56,86 +29,88 @@ public class StringExample {
 		properties.setProperty("zookeeper.connect", args[1]);
 		properties.setProperty("group.id", "test");
 		
-		DataStream<String> lines = env.addSource(new FlinkKafkaConsumer("mytopic", new SimpleStringSchema(), properties));
+		DataStream<String> lines = env.addSource(new FlinkKafkaConsumer011<String>("mytopic", new SimpleStringSchema(), properties));
+		
+		lines.print();
 		
 		// the rebelance call is causing a repartitioning of the data so that all machines
 //		DataStream<EntityProfile> entities = lines.rebalance().map(s -> new EntityProfile(s));
 		
 		//Extract the token from the attribute values.
-		DataStream<Tuple2<Integer, String>> streamOfPairs = lines.rebalance().flatMap(new FlatMapFunction<String, Tuple2<Integer, String>>() {
-
-			@Override
-			public void flatMap(String s, Collector<Tuple2<Integer, String>> output) throws Exception {
-				Set<Integer> cleanTokens = new HashSet<Integer>();
-				EntityProfile se = new EntityProfile(s);
-
-				for (Attribute att : se.getAttributes()) {
-					KeywordGenerator kw = new KeywordGeneratorImpl();
-					for (String string : generateTokens(att.getValue())) {
-						cleanTokens.add(string.hashCode());
-					}
-				}
-				
-//				if ((se.isSource() && se.getKey() == 514) || (!se.isSource() && se.getKey() == 970)) {
-//					System.out.println();
-//				}
-
-				for (Integer tk : cleanTokens) {
-					output.collect(new Tuple2<Integer, String>(tk, se.getKey()+"#"+se.isSource()));
-//					ClusterGraph cluster = new ClusterGraph(tk, se.getIncrementID());
-//					if (se.isSource()) {
-//						cluster.addInSource(new NodeGraph(tk, se.getKey(), cleanTokens, se.isSource(), Integer.parseInt(args[2]), true, se.getIncrementID()));
-//					} else {
-//						cluster.addInTarget(new NodeGraph(tk, se.getKey(), cleanTokens, se.isSource(), Integer.parseInt(args[2]), true, se.getIncrementID()));
+//		DataStream<Tuple2<Integer, String>> streamOfPairs = lines.rebalance().flatMap(new FlatMapFunction<String, Tuple2<Integer, String>>() {
+//
+//			@Override
+//			public void flatMap(String s, Collector<Tuple2<Integer, String>> output) throws Exception {
+//				Set<Integer> cleanTokens = new HashSet<Integer>();
+//				EntityProfile se = new EntityProfile(s);
+//
+//				for (Attribute att : se.getAttributes()) {
+//					KeywordGenerator kw = new KeywordGeneratorImpl();
+//					for (String string : generateTokens(att.getValue())) {
+//						cleanTokens.add(string.hashCode());
 //					}
-//					output.collect(cluster);
-				}
-			}
-
-			private Set<String> generateTokens(String string) {
-				Pattern p = Pattern.compile("[^a-zA-Z\\s0-9]");
-				Matcher m = p.matcher("");
-				m.reset(string);
-				String standardString = m.replaceAll("");
-				
-				KeywordGenerator kw = new KeywordGeneratorImpl();
-				return kw.generateKeyWords(standardString);
-			}
-		});
-		
-		
-		//Applies the token as a key.
-		WindowedStream<Tuple2<Integer, String>, Tuple, TimeWindow> entityBlocks = streamOfPairs.keyBy(0)
-				.timeWindow(Time.seconds(Integer.parseInt(args[3])), Time.seconds(Integer.parseInt(args[4])));//define the window
-		
-		SingleOutputStreamOperator<Tuple2<Integer, String>> blocks = entityBlocks.reduce(new ReduceFunction<Tuple2<Integer,String>>() {
-			
-			@Override
-			public Tuple2<Integer, String> reduce(Tuple2<Integer, String> value1, Tuple2<Integer, String> value2)
-					throws Exception {
-				return new Tuple2<Integer, String>(value1.f0, value1.f1 + "<>" + value2.f1);
-			}
-		});
-		
-		blocks.flatMap(new FlatMapFunction<Tuple2<Integer,String>, Tuple2<String,Double>>() {
-
-			@Override
-			public void flatMap(Tuple2<Integer, String> value, Collector<Tuple2<String, Double>> out) throws Exception {
-				String[] entities = value.f1.split("<>");
-				if (entities.length > 1) {
-					for (int i = 0; i < entities.length; i++) {
-						for (int j = i+1; j < entities.length; j++) {
-							String[] e1 = entities[i].split("#");
-							String[] e2 = entities[j].split("#");
-							if (!e1[1].equalsIgnoreCase(e2[1])) {
-								out.collect(new Tuple2<String, Double>(e1[0]+"-"+e2[0], 1.0));
-							}
-						}
-					}
-				}
-				
-			}
-		}).keyBy(0)/*.timeWindow(Time.seconds(Integer.parseInt(args[3])), Time.seconds(Integer.parseInt(args[4])))*/.sum(1).print();
+//				}
+//				
+////				if ((se.isSource() && se.getKey() == 514) || (!se.isSource() && se.getKey() == 970)) {
+////					System.out.println();
+////				}
+//
+//				for (Integer tk : cleanTokens) {
+//					output.collect(new Tuple2<Integer, String>(tk, se.getKey()+"#"+se.isSource()));
+////					ClusterGraph cluster = new ClusterGraph(tk, se.getIncrementID());
+////					if (se.isSource()) {
+////						cluster.addInSource(new NodeGraph(tk, se.getKey(), cleanTokens, se.isSource(), Integer.parseInt(args[2]), true, se.getIncrementID()));
+////					} else {
+////						cluster.addInTarget(new NodeGraph(tk, se.getKey(), cleanTokens, se.isSource(), Integer.parseInt(args[2]), true, se.getIncrementID()));
+////					}
+////					output.collect(cluster);
+//				}
+//			}
+//
+//			private Set<String> generateTokens(String string) {
+//				Pattern p = Pattern.compile("[^a-zA-Z\\s0-9]");
+//				Matcher m = p.matcher("");
+//				m.reset(string);
+//				String standardString = m.replaceAll("");
+//				
+//				KeywordGenerator kw = new KeywordGeneratorImpl();
+//				return kw.generateKeyWords(standardString);
+//			}
+//		});
+//		
+//		
+//		//Applies the token as a key.
+//		WindowedStream<Tuple2<Integer, String>, Tuple, TimeWindow> entityBlocks = streamOfPairs.keyBy(0)
+//				.timeWindow(Time.seconds(Integer.parseInt(args[3])), Time.seconds(Integer.parseInt(args[4])));//define the window
+//		
+//		SingleOutputStreamOperator<Tuple2<Integer, String>> blocks = entityBlocks.reduce(new ReduceFunction<Tuple2<Integer,String>>() {
+//			
+//			@Override
+//			public Tuple2<Integer, String> reduce(Tuple2<Integer, String> value1, Tuple2<Integer, String> value2)
+//					throws Exception {
+//				return new Tuple2<Integer, String>(value1.f0, value1.f1 + "<>" + value2.f1);
+//			}
+//		});
+//		
+//		blocks.flatMap(new FlatMapFunction<Tuple2<Integer,String>, Tuple2<String,Double>>() {
+//
+//			@Override
+//			public void flatMap(Tuple2<Integer, String> value, Collector<Tuple2<String, Double>> out) throws Exception {
+//				String[] entities = value.f1.split("<>");
+//				if (entities.length > 1) {
+//					for (int i = 0; i < entities.length; i++) {
+//						for (int j = i+1; j < entities.length; j++) {
+//							String[] e1 = entities[i].split("#");
+//							String[] e2 = entities[j].split("#");
+//							if (!e1[1].equalsIgnoreCase(e2[1])) {
+//								out.collect(new Tuple2<String, Double>(e1[0]+"-"+e2[0], 1.0));
+//							}
+//						}
+//					}
+//				}
+//				
+//			}
+//		}).keyBy(0)/*.timeWindow(Time.seconds(Integer.parseInt(args[3])), Time.seconds(Integer.parseInt(args[4])))*/.sum(1).print();
 		
 		
 		

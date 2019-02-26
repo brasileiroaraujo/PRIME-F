@@ -1,10 +1,8 @@
 package tests;
 
-import java.util.TreeMap;
 import java.util.TreeSet;
 
 import DataStructures.TupleSimilarity;
-import scala.collection.immutable.Nil;
 
 public class OrderedMap {
 
