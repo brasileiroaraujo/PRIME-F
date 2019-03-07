@@ -14,6 +14,7 @@ import org.apache.flink.api.common.functions.FlatMapFunction;
 import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.api.java.tuple.Tuple;
 import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSink;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
@@ -42,6 +43,7 @@ public class PRIMEBigdataGraph5 {
 		
 		
 		final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+		env.setStreamTimeCharacteristic(TimeCharacteristic.ProcessingTime);
 		
 //		StreamExecutionEnvironment env = StreamExecutionEnvironment.createRemoteEnvironment("flink-master", 8081, "/home/user/udfs.jar");
 		env.setParallelism(Integer.parseInt(args[6]));
@@ -53,6 +55,17 @@ public class PRIMEBigdataGraph5 {
 		// only required for Kafka 0.8
 		properties.setProperty("zookeeper.connect", args[1]);
 		properties.setProperty("group.id", "test");
+		properties.setProperty("enable.auto.commit", "true");
+		properties.setProperty("auto.offset.reset", "earliest");
+		//fast session timeout makes it more fun to play with failover
+//		properties.setProperty("session.timeout.ms", "10000");
+		//These buffer sizes seem to be needed to avoid consumer switching to
+		//a mode where it processes one bufferful every 5 seconds with multiple
+		//timeouts along the way.  No idea why this happens.
+		//some properties was based in this flink project https://github.com/big-data-europe/pilot-sc4-flink-kafka-consumer/blob/master/src/main/resources/consumer.props
+		properties.setProperty("fetch.min.bytes", "50000");
+		properties.setProperty("receive.buffer.bytes", "1000000");
+		properties.setProperty("max.partition.fetch.bytes", "5000000");
 		
 		
 		DataStream<String> lines = env.addSource(new FlinkKafkaConsumer011<String>("mytopic", new SimpleStringSchema(), properties));

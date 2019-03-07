@@ -128,6 +128,20 @@ public class EntityProfile implements Serializable {
 		return output;
 	}
 	
+	public String getStandardFormat2() {
+		String output = "";
+		output += isSource + split1;
+		output += entityUrl + split1;//separate the attributes
+		output += key + split1;//separate the attributes
+		output += "incrementID" + split1;//separate the attributes
+		
+		for (Attribute attribute : attributes) {
+			output += attribute.getName() + split2 + attribute.getValue() + split1;
+		}
+				
+		return output;
+	}
+	
 //	public String getStandardFormat2() {
 //		String output = "";
 //		output += isSource + split1;

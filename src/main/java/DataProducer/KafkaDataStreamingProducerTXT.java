@@ -1,6 +1,8 @@
 package DataProducer;
 
-import java.io.FileInputStream;
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -25,13 +27,13 @@ import tokens.KeywordGenerator;
 import tokens.KeywordGeneratorImpl;
 
 //localhost:9092 20 inputs/dataset1_abt true 0.1
-public class KafkaDataStreamingProducerByTimeAttSelection2 {
+public class KafkaDataStreamingProducerTXT {
 	private static String INPUT_PATH1;
 	private static String INPUT_PATH2;
 	private static boolean APPLY_ATT_SELECTION;
 	private static double percentageOfEntitiesPerIncrement;
 	private static int timer;
-	private static Set<String> allTokens = new HashSet<String>();
+//	private static Set<String> allTokens = new HashSet<String>();
 	
 	public static void main(String[] args) throws Exception {
 		INPUT_PATH1 = args[2];
@@ -39,7 +41,6 @@ public class KafkaDataStreamingProducerByTimeAttSelection2 {
 //		IS_SOURCE = Boolean.parseBoolean(args[4]);
 		percentageOfEntitiesPerIncrement = Double.parseDouble(args[4]); //number of entities per increment based on the percentage. e.g: 0,1 is 10%
 		timer = Integer.parseInt(args[1]) * 1000;//second to milisecond
-		APPLY_ATT_SELECTION = Boolean.parseBoolean(args[5]);
 		
 		// create execution environment
 		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
@@ -72,8 +73,8 @@ public class KafkaDataStreamingProducerByTimeAttSelection2 {
 	        int currentIncrement = 0;
 	        
 //	        FlinkKafkaProducer011<String, String> producer = new FlinkKafkaProducer011<>(props);
-	        List<EntityProfile> EntityListSource = null;
-	        List<EntityProfile> EntityListTarget = null;
+	        List<String> EntityListSource = null;
+	        List<String> EntityListTarget = null;
 	        
 			// reading the files
 			ObjectInputStream ois1;
@@ -81,9 +82,9 @@ public class KafkaDataStreamingProducerByTimeAttSelection2 {
 			try {
 //				ois1 = new ObjectInputStream(new FileInputStream(INPUT_PATH1));
 //				ois2 = new ObjectInputStream(new FileInputStream(INPUT_PATH2));
-				EntityListSource = (List<EntityProfile>) SerializationUtilities.loadSerializedObject(INPUT_PATH1);
+				EntityListSource = loadTxtDoc(INPUT_PATH1);
 				System.out.println("Source loaded ... " + EntityListSource.size());
-				EntityListTarget = (List<EntityProfile>) SerializationUtilities.loadSerializedObject(INPUT_PATH2);
+				EntityListTarget = loadTxtDoc(INPUT_PATH2);
 				System.out.println("Target loaded ... " + EntityListTarget.size());
 //				ois1.close();
 //				ois2.close();
@@ -93,34 +94,31 @@ public class KafkaDataStreamingProducerByTimeAttSelection2 {
 			}
 			
 			
-			if (APPLY_ATT_SELECTION) {
-				System.out.println("Attribute selection starting ...");
-				attributeSelection(EntityListSource, EntityListTarget);
-				System.out.println("Attribute selection ending ...");
-			}
+//			if (APPLY_ATT_SELECTION) {
+//				System.out.println("Attribute selection starting ...");
+//				attributeSelection(EntityListSource, EntityListTarget);
+//				System.out.println("Attribute selection ending ...");
+//			}
 			
 			int incrementControlerSource = (int)Math.ceil(percentageOfEntitiesPerIncrement * EntityListSource.size());
 			int incrementControlerTarget = (int)Math.ceil(percentageOfEntitiesPerIncrement * EntityListTarget.size());
 			int uniqueIdSource = 0;
 			int uniqueIdTarget = 0;
 			
-			
 			while (uniqueIdSource < EntityListSource.size() || uniqueIdTarget < EntityListTarget.size()) {
 				currentIncrement++;
 				ArrayList<String> listToSend = new ArrayList<String>();
 				for (int i = uniqueIdSource; i < incrementControlerSource; i++) {
 					if (i < EntityListSource.size()) {
-						EntityProfile entitySource = EntityListSource.get(i);
-						entitySource.setSource(true); //is source
-						entitySource.setKey(uniqueIdSource);
-						entitySource.setIncrementID(currentIncrement);
+						String entitySource = EntityListSource.get(i);
+						entitySource = entitySource.replace("incrementID", currentIncrement+"");
 						
-						listToSend.add(entitySource.getStandardFormat());
+						listToSend.add(entitySource);
 						
-						for (Attribute att : entitySource.getAttributes()) {
-							KeywordGenerator kw = new KeywordGeneratorImpl();
-							allTokens.addAll(kw.generateKeyWords(att.getValue()));
-						}
+//						for (Attribute att : entitySource.getAttributes()) {
+//							KeywordGenerator kw = new KeywordGeneratorImpl();
+//							allTokens.addAll(kw.generateKeyWords(att.getValue()));
+//						}
 						
 					}
 					
@@ -130,17 +128,15 @@ public class KafkaDataStreamingProducerByTimeAttSelection2 {
 				
 				for (int i = uniqueIdTarget; i < incrementControlerTarget; i++) {
 					if (i < EntityListTarget.size()) {
-						EntityProfile entityTarget = EntityListTarget.get(i);
-						entityTarget.setSource(false); //isn't source
-						entityTarget.setKey(uniqueIdTarget);
-						entityTarget.setIncrementID(currentIncrement);
+						String entityTarget = EntityListTarget.get(i);
+						entityTarget = entityTarget.replace("incrementID", currentIncrement+"");
 						
-						listToSend.add(entityTarget.getStandardFormat());
+						listToSend.add(entityTarget);
 						
-						for (Attribute att : entityTarget.getAttributes()) {
-							KeywordGenerator kw = new KeywordGeneratorImpl();
-							allTokens.addAll(kw.generateKeyWords(att.getValue()));
-						}
+//						for (Attribute att : entityTarget.getAttributes()) {
+//							KeywordGenerator kw = new KeywordGeneratorImpl();
+//							allTokens.addAll(kw.generateKeyWords(att.getValue()));
+//						}
 						
 					}
 					
@@ -148,7 +144,7 @@ public class KafkaDataStreamingProducerByTimeAttSelection2 {
 				}
 				
 				for (String string : listToSend) {
-//					ctx.collect(string);
+					ctx.collect(string);
 				}
 				
 				
@@ -167,7 +163,24 @@ public class KafkaDataStreamingProducerByTimeAttSelection2 {
 	        int minutos = data.get(Calendar.MINUTE);
 	        int segundos = data.get(Calendar.SECOND);
 	        System.out.println(horas + ":" + minutos + ":" + segundos);
-	        System.out.println("Number of possible tokens: " + allTokens.size());
+//	        System.out.println("Number of possible tokens: " + allTokens.size());
+		}
+
+
+		private List<String> loadTxtDoc(String INPUT_PATH1) {
+			List<String> output = new ArrayList<String>();
+			try (BufferedReader br = new BufferedReader(new FileReader(INPUT_PATH1))) {
+
+				String sCurrentLine;
+
+				while ((sCurrentLine = br.readLine()) != null) {
+					output.add(sCurrentLine);
+				}
+
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+			return output;
 		}
 
 
