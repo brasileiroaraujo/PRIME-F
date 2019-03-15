@@ -64,8 +64,8 @@ public class PRIMEBigdataGraph5 {
 		//timeouts along the way.  No idea why this happens.
 		//some properties was based in this flink project https://github.com/big-data-europe/pilot-sc4-flink-kafka-consumer/blob/master/src/main/resources/consumer.props
 		properties.setProperty("fetch.min.bytes", "50000");
-		properties.setProperty("receive.buffer.bytes", "1000000");
-		properties.setProperty("max.partition.fetch.bytes", "5000000");
+		properties.setProperty("receive.buffer.bytes", "1000000");//1000000
+		properties.setProperty("max.partition.fetch.bytes", "5000000");//5000000
 		
 		
 		DataStream<String> lines = env.addSource(new FlinkKafkaConsumer011<String>("mytopic", new SimpleStringSchema(), properties));
@@ -74,38 +74,56 @@ public class PRIMEBigdataGraph5 {
 		
 		//Receive the entities and extract the token from the attribute values.
 		DataStream<Tuple2<Integer, EntityNode>> entitiesTokens = entities.rebalance().flatMap(new FlatMapFunction<EntityProfile, Tuple2<Integer, EntityNode>>() {
-
+			
 			@Override
 			public void flatMap(EntityProfile e, Collector<Tuple2<Integer, EntityNode>> output) throws Exception {
-				Set<Integer> cleanTokens = new HashSet<Integer>();
-
-				for (Attribute att : e.getAttributes()) {
-					KeywordGenerator kw = new KeywordGeneratorImpl();
-					for (String string : generateTokens(att.getValue())) {
-						cleanTokens.add(string.hashCode());
-					}
-				}
+//				Set<Integer> cleanTokens = new HashSet<Integer>();
+//
+//				for (Attribute att : e.getAttributes()) {
+//					Set<String> tokens = generateTokens(att.getValue());
+//					for (String string : tokens) {
+//						cleanTokens.add(string.hashCode());
+//					}
+//				}
 				
 //				if ((se.isSource() && se.getKey() == 514) || (!se.isSource() && se.getKey() == 970)) {
 //					System.out.println();
 //				}
-
-				for (Integer tk : cleanTokens) {
-					EntityNode node = new EntityNode(tk, e.getKey(), cleanTokens, e.isSource(), Integer.parseInt(args[2]), e.getIncrementID());
+				
+				
+				for (Integer tk : e.getSetOfTokens()) {
+					EntityNode node = new EntityNode(tk, e.getKey(), e.getSetOfTokens(), e.isSource(), Integer.parseInt(args[2]), e.getIncrementID());
 					output.collect(new Tuple2<Integer, EntityNode>(tk, node));
 				}
 				
 			}
 			
-			private Set<String> generateTokens(String string) {
-				Pattern p = Pattern.compile("[^a-zA-Z\\s0-9]");
-				Matcher m = p.matcher("");
-				m.reset(string);
-				String standardString = m.replaceAll("");
-				
-				KeywordGenerator kw = new KeywordGeneratorImpl();
-				return kw.generateKeyWords(standardString);
-			}
+//			private Set<String> generateTokens(String string) {
+//				if (string.length() > 19 && string.substring(0, 19).equals("http://dbpedia.org/")) {
+//					String[] uriPath = string.split("/");
+//					string = uriPath[uriPath.length-1];
+//				}
+//				
+//				//To improve quality, use the following code
+//				Pattern p = Pattern.compile("[^a-zA-Z\\s0-9]");
+//				Matcher m = p.matcher("");
+//				m.reset(string);
+//				String standardString = m.replaceAll("");
+//				
+//				KeywordGenerator kw = new KeywordGeneratorImpl();
+//				return kw.generateKeyWords(standardString);
+//			}
+//			
+//			private String[] generateTokensForBigData(String string) {
+//				if (string.length() > 19 && string.substring(0, 19).equals("http://dbpedia.org/")) {
+//					String[] uriPath = string.split("/");
+//					string = uriPath[uriPath.length-1];
+//				}
+//				
+//				return string.split("[\\W_]");
+//			}
+			
+			
 		});
 		
 		
@@ -155,22 +173,22 @@ public class PRIMEBigdataGraph5 {
 		
 		
 		//Remove the blocks with a huge number of entities (filtering block).
-		SingleOutputStreamOperator<BlockStructure> filteredTokenBlocks = tokenBlocks.rebalance().filter(new FilterFunction<BlockStructure>() {
-			
-			@Override
-			public boolean filter(BlockStructure b) throws Exception {
-				boolean filterActive = Boolean.parseBoolean(args[7]);
-				if (filterActive) {
-					int filterSize = Integer.parseInt(args[8]);
-					return b.size() < filterSize;
-				} else {
-					return true;
-				}
-			}
-		});
+//		SingleOutputStreamOperator<BlockStructure> filteredTokenBlocks = tokenBlocks.rebalance().filter(new FilterFunction<BlockStructure>() {
+//			
+//			@Override
+//			public boolean filter(BlockStructure b) throws Exception {
+//				boolean filterActive = Boolean.parseBoolean(args[7]);
+//				if (filterActive) {
+//					int filterSize = Integer.parseInt(args[8]);
+//					return b.size() < filterSize;
+//				} else {
+//					return true;
+//				}
+//			}
+//		});
 		
 		
-		SingleOutputStreamOperator<Tuple2<Integer, EntityNode>> entitySimilarities = filteredTokenBlocks.rebalance().flatMap(new FlatMapFunction<BlockStructure, Tuple2<Integer, EntityNode>>() {
+		SingleOutputStreamOperator<Tuple2<Integer, EntityNode>> entitySimilarities = tokenBlocks.rebalance().flatMap(new FlatMapFunction<BlockStructure, Tuple2<Integer, EntityNode>>() {
 
 			@Override
 			public void flatMap(BlockStructure block, Collector<Tuple2<Integer, EntityNode>> output) throws Exception {
@@ -181,9 +199,10 @@ public class PRIMEBigdataGraph5 {
 							if (sim >= 0) {
 								eSource.addNeighbor(new TupleSimilarity(eTarget.getId(), sim));
 							}
-						} else {
-							System.out.println();
-						}
+						} 
+//						else {
+//							System.out.println();
+//						}
 					}
 					
 					output.collect(new Tuple2<Integer, EntityNode>(eSource.getId(), eSource));

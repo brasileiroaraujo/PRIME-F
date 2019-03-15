@@ -18,6 +18,11 @@ import java.io.Serializable;
 import java.sql.Timestamp;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import tokens.KeywordGenerator;
+import tokens.KeywordGeneratorImpl;
 
 /**
  *
@@ -33,6 +38,7 @@ public class EntityProfile implements Serializable {
 	private int key;
 	private int incrementID;
 	private Timestamp creation;
+	private Set<Integer> setOfTokens;
 
 	public Object[] getAllValues() {
 	    return new Object[]{key, entityUrl, isSource, creation};
@@ -79,12 +85,14 @@ public class EntityProfile implements Serializable {
 		incrementID = Integer.valueOf(parts[3]);
 		creation = new Timestamp(System.currentTimeMillis());
 		attributes = new HashSet();
+		setOfTokens = new HashSet<Integer>();
 		for (int i = 4; i < parts.length; i++) {//the first element is the key (avoid!)
 			String[] nameValue = parts[i].split(split2);
 			if (nameValue.length == 1) {
 				attributes.add(new Attribute(nameValue[0], ""));
 			} else {
 				attributes.add(new Attribute(nameValue[0], nameValue[1]));
+				setOfTokens.addAll(generateTokens(nameValue[1]));
 			}
 		}
 	}
@@ -179,6 +187,39 @@ public class EntityProfile implements Serializable {
 
 	public void setIncrementID(int incrementID) {
 		this.incrementID = incrementID;
+	}
+	
+	public Set<Integer> getSetOfTokens() {
+		return setOfTokens;
+	}
+
+	public void setSetOfTokens(Set<Integer> setOfTokens) {
+		this.setOfTokens = setOfTokens;
+	}
+
+	private Set<Integer> generateTokens(String string) {
+		if (string.length() > 19 && string.substring(0, 19).equals("http://dbpedia.org/")) {
+			String[] uriPath = string.split("/");
+			string = uriPath[uriPath.length-1];
+		}
+		
+		//To improve quality, use the following code
+		Pattern p = Pattern.compile("[^a-zA-Z\\s0-9]");
+		Matcher m = p.matcher("");
+		m.reset(string);
+		String standardString = m.replaceAll("");
+		
+		KeywordGenerator kw = new KeywordGeneratorImpl();
+		return kw.generateKeyWordsHashCode(standardString);
+	}
+	
+	private String[] generateTokensForBigData(String string) {
+		if (string.length() > 19 && string.substring(0, 19).equals("http://dbpedia.org/")) {
+			String[] uriPath = string.split("/");
+			string = uriPath[uriPath.length-1];
+		}
+		
+		return string.split("[\\W_]");
 	}
 
 	@Override

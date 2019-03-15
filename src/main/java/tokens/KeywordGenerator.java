@@ -7,4 +7,6 @@ import java.util.Set;
  */
 public interface KeywordGenerator {
     Set<String> generateKeyWords(String content);
+    
+    Set<Integer> generateKeyWordsHashCode(String content);
 }

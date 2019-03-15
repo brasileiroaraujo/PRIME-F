@@ -54,4 +54,30 @@ public class KeywordGeneratorImpl implements KeywordGenerator {
         }
         return keywords;
     }
+
+	@Override
+	public Set<Integer> generateKeyWordsHashCode(String content) {
+		Set<Integer> keywords = new HashSet<>();
+        TokenStream stream = analyzer.tokenStream("contents", new StringReader(content));
+        try {
+            stream.reset();
+            while(stream.incrementToken()) {
+                String kw = stream.getAttribute(CharTermAttribute.class).toString();
+                stemmer.setCurrent(kw);
+                stemmer.stem();
+                keywords.add(stemmer.getCurrent().hashCode());
+            }
+        }catch(Exception ex) {
+            LOGGER.error(ex.getMessage());
+        }finally {
+
+            try {
+                stream.end();
+                stream.close();
+            } catch (Exception e) {
+                LOGGER.error(e.getMessage());
+            }
+        }
+        return keywords;
+	}
 }

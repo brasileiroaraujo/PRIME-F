@@ -79,8 +79,164 @@ public class GenerateDatasetFormatted {
 		
 		if (APPLY_ATT_SELECTION) {
 			System.out.println("Attribute selection starting ...");
-			attributeSelection(EntityListSource, EntityListTarget);
+//			attributeSelection2(EntityListSource, EntityListTarget);
+			HashMap<String, Integer> tokensIDs = new HashMap<String, Integer>();
+	        HashMap<String, Set<Integer>> attributeMapSource = new HashMap<String, Set<Integer>>();
+	        HashMap<String, Set<Integer>> attributeMapTarget = new HashMap<String, Set<Integer>>();
+	        HashMap<Integer, Integer> itemsFrequencySource = new HashMap<Integer, Integer>();
+	        HashMap<Integer, Integer> itemsFrequencyTarget = new HashMap<Integer, Integer>();
+	        int currentTokenID = 0;
+	        double totalTokensSource = 0;
+	        double totalTokensTarget = 0;
+	        
+	        System.out.println("Extracting tokens from source ...");
+			for (EntityProfile e : EntityListSource) {
+				for (Attribute att : e.getAttributes()) {
+					KeywordGenerator kw = new KeywordGeneratorImpl();
+					for (String tk : kw.generateKeyWords(att.getValue())) {
+						if (!tokensIDs.containsKey(tk)) {
+							tokensIDs.put(tk, currentTokenID++);
+						}
+						
+						itemsFrequencySource.put(tokensIDs.get(tk), (itemsFrequencySource.getOrDefault(tokensIDs.get(tk), 0) + 1));
+						
+						if (attributeMapSource.containsKey(att.getName())) {
+							attributeMapSource.get(att.getName()).add(tokensIDs.get(tk));
+						} else {
+							attributeMapSource.put(att.getName(), new HashSet<Integer>());
+							attributeMapSource.get(att.getName()).add(tokensIDs.get(tk));
+						}
+						totalTokensSource++;
+					}
+				}
+			}
+			System.out.println("Extracted tokens from source ...");
+			
+			System.out.println("Extracting tokens from target ...");
+			for (EntityProfile e : EntityListTarget) {
+				for (Attribute att : e.getAttributes()) {
+					KeywordGenerator kw = new KeywordGeneratorImpl();
+					for (String tk : kw.generateKeyWords(att.getValue())) {
+						if (!tokensIDs.containsKey(tk)) {
+							tokensIDs.put(tk, currentTokenID++);
+						}
+						
+						itemsFrequencyTarget.put(tokensIDs.get(tk), (itemsFrequencyTarget.getOrDefault(tokensIDs.get(tk), 0) + 1));
+						
+						if (attributeMapTarget.containsKey(att.getName())) {
+							attributeMapTarget.get(att.getName()).add(tokensIDs.get(tk));
+						} else {
+							attributeMapTarget.put(att.getName(), new HashSet<Integer>());
+							attributeMapTarget.get(att.getName()).add(tokensIDs.get(tk));
+						}
+						totalTokensTarget++;
+					}
+				}
+			}
+			System.out.println("Extracted tokens from target ...");
+			
+			
+			//blacklist based on entropy
+			System.out.println("Removing attributes from entropy ...");
+			Set<Integer> blackListSource = StatisticalSummarization.getBlackListEntropy(attributeMapSource, itemsFrequencySource, totalTokensSource);
+			System.out.println("Removed " + blackListSource.size() + "  attributes from source.");
+			Set<Integer> blackListTarget = StatisticalSummarization.getBlackListEntropy(attributeMapTarget, itemsFrequencyTarget, totalTokensTarget);
+			System.out.println("Removed " + blackListTarget.size() + "  attributes from target.");
+			
+			itemsFrequencySource = null;
+			itemsFrequencyTarget = null;
+			
+			
+			//generate the MinHash
+			System.out.println("Generate minhash ...");
+			HashMap<String, int[]> attributeHashesSource = new HashMap<String, int[]>();
+			HashMap<String, int[]> attributeHashesTarget = new HashMap<String, int[]>();
+			MinHash minhash = new MinHash(120, tokensIDs.size());//Estimate the signature size after
+			tokensIDs=null;
+			for (String att : attributeMapSource.keySet()) {
+				attributeHashesSource.put(att, minhash.signature(attributeMapSource.get(att)));
+			}
+			for (String att : attributeMapTarget.keySet()) {
+				attributeHashesTarget.put(att, minhash.signature(attributeMapTarget.get(att)));
+			}
+			System.out.println("Generated minhashs ...");
+			
+			attributeMapSource = null;
+			attributeMapTarget = null;
+			
+			
+			//generate the similarity matrix
+			System.out.println("Creating similarity matrix ...");
+			ArrayList<String> attFromSource = new ArrayList<String>(attributeHashesSource.keySet());
+			ArrayList<String> attFromTarget = new ArrayList<String>(attributeHashesTarget.keySet());
+			double[][] similarityMatrix = new double[attFromSource.size()][attFromTarget.size()];
+			double sum = 0.0;
+			for (int i = 0; i < attFromSource.size(); i++) {
+				for (int j = 0; j < attFromTarget.size(); j++) {
+					double similarity = minhash.similarity(attributeHashesSource.get(attFromSource.get(i)), attributeHashesTarget.get(attFromTarget.get(j)));
+					sum += similarity;
+					similarityMatrix[i][j] = similarity;
+				}
+			}
+			System.out.println("Created similarity matrix ...");
+			
+			attributeHashesSource = null;
+			attributeHashesTarget = null;
+			
+			double average = sum/(attFromSource.size()*attFromTarget.size());
+			
+			System.out.println("Defining the black list ...");
+			for (int i = 0; i < attFromSource.size(); i++) {
+				int count = 0;
+				for (int j = 0; j < attFromTarget.size(); j++) {
+					if (similarityMatrix[i][j] >= average) { //use average or median
+						count++;
+					}
+				}
+				if (count == 0) {
+					blackListSource.add(i);
+				}
+				count = 0;
+			}			
+			for (int i = 0; i < attFromTarget.size(); i++) {
+				int count = 0;
+				for (int j = 0; j < attFromSource.size(); j++) {
+					if (similarityMatrix[j][i] >= average) {
+						count++;
+					}
+				}
+				if (count == 0) {
+					blackListTarget.add(i);
+				}
+				count = 0;
+			}
+			System.out.println("Defined the black list ...");
+			
+			System.out.println("Removed in total " + blackListSource.size() + "  attributes from source.");
+			System.out.println("Removed in total " + blackListTarget.size() + "  attributes from target.");
+			
+			//removing the bad attributes
+			System.out.println("Removing the attributes for source ...");
+			for (EntityProfile e : EntityListSource) {
+				for (Integer index : blackListSource) {
+					Attribute att = findAttribute(e.getAttributes(), attFromSource.get(index));
+					e.getAttributes().remove(att);
+				}
+			}
+			System.out.println("Removed the attributes for source ...");
+			System.out.println("Removing the attributes for target ...");
+			for (EntityProfile e : EntityListTarget) {
+				for (Integer index : blackListTarget) {
+					Attribute att = findAttribute(e.getAttributes(), attFromTarget.get(index));
+					e.getAttributes().remove(att);
+				}
+			}
+			System.out.println("Removed the attributes for target ...");
 			System.out.println("Attribute selection ending ...");
+			
+			blackListSource=null;
+			blackListTarget=null;
+			similarityMatrix=null;
 		}
 		
 //		int incrementControlerSource = (int)Math.ceil(percentageOfEntitiesPerIncrement * EntityListSource.size());
@@ -154,6 +310,161 @@ public class GenerateDatasetFormatted {
         int segundos = data.get(Calendar.SECOND);
         System.out.println(horas + ":" + minutos + ":" + segundos);
         System.out.println("Number of possible tokens: " + allTokens.size());
+		
+		
+	}
+
+	private static void attributeSelection2(List<EntityProfile> entityListSource,
+			List<EntityProfile> entityListTarget) {
+		
+//		HashMap<String, Integer> tokensIDs = new HashMap<String, Integer>();
+//        HashMap<String, Set<Integer>> attributeMapSource = new HashMap<String, Set<Integer>>();
+//        HashMap<String, Set<Integer>> attributeMapTarget = new HashMap<String, Set<Integer>>();
+//        HashMap<Integer, Integer> itemsFrequencySource = new HashMap<Integer, Integer>();
+//        HashMap<Integer, Integer> itemsFrequencyTarget = new HashMap<Integer, Integer>();
+//        int currentTokenID = 0;
+//        double totalTokensSource = 0;
+//        double totalTokensTarget = 0;
+//        
+//        System.out.println("Extracting tokens from source ...");
+//		for (EntityProfile e : entityListSource) {
+//			for (Attribute att : e.getAttributes()) {
+//				KeywordGenerator kw = new KeywordGeneratorImpl();
+//				for (String tk : kw.generateKeyWords(att.getValue())) {
+//					if (!tokensIDs.containsKey(tk)) {
+//						tokensIDs.put(tk, currentTokenID++);
+//					}
+//					
+//					itemsFrequencySource.put(tokensIDs.get(tk), (itemsFrequencySource.getOrDefault(tokensIDs.get(tk), 0) + 1));
+//					
+//					if (attributeMapSource.containsKey(att.getName())) {
+//						attributeMapSource.get(att.getName()).add(tokensIDs.get(tk));
+//					} else {
+//						attributeMapSource.put(att.getName(), new HashSet<Integer>());
+//						attributeMapSource.get(att.getName()).add(tokensIDs.get(tk));
+//					}
+//					totalTokensSource++;
+//				}
+//			}
+//		}
+//		System.out.println("Extracted tokens from source ...");
+//		
+//		System.out.println("Extracting tokens from target ...");
+//		for (EntityProfile e : entityListTarget) {
+//			for (Attribute att : e.getAttributes()) {
+//				KeywordGenerator kw = new KeywordGeneratorImpl();
+//				for (String tk : kw.generateKeyWords(att.getValue())) {
+//					if (!tokensIDs.containsKey(tk)) {
+//						tokensIDs.put(tk, currentTokenID++);
+//					}
+//					
+//					itemsFrequencyTarget.put(tokensIDs.get(tk), (itemsFrequencyTarget.getOrDefault(tokensIDs.get(tk), 0) + 1));
+//					
+//					if (attributeMapTarget.containsKey(att.getName())) {
+//						attributeMapTarget.get(att.getName()).add(tokensIDs.get(tk));
+//					} else {
+//						attributeMapTarget.put(att.getName(), new HashSet<Integer>());
+//						attributeMapTarget.get(att.getName()).add(tokensIDs.get(tk));
+//					}
+//					totalTokensTarget++;
+//				}
+//			}
+//		}
+//		System.out.println("Extracted tokens from target ...");
+//		
+//		
+//		//blacklist based on entropy
+//		System.out.println("Removing attributes from entropy ...");
+//		Set<Integer> blackListSource = StatisticalSummarization.getBlackListEntropy(attributeMapSource, itemsFrequencySource, totalTokensSource);
+//		System.out.println("Removed " + blackListSource.size() + "  attributes from source.");
+//		Set<Integer> blackListTarget = StatisticalSummarization.getBlackListEntropy(attributeMapTarget, itemsFrequencyTarget, totalTokensTarget);
+//		System.out.println("Removed " + blackListTarget.size() + "  attributes from target.");
+//		
+//		itemsFrequencySource = null;
+//		itemsFrequencyTarget = null;
+//		
+//		
+//		//generate the MinHash
+//		System.out.println("Generate minhash ...");
+//		HashMap<String, int[]> attributeHashesSource = new HashMap<String, int[]>();
+//		HashMap<String, int[]> attributeHashesTarget = new HashMap<String, int[]>();
+//		MinHash minhash = new MinHash(120, tokensIDs.size());//Estimate the signature size after
+//		for (String att : attributeMapSource.keySet()) {
+//			attributeHashesSource.put(att, minhash.signature(attributeMapSource.get(att)));
+//		}
+//		for (String att : attributeMapTarget.keySet()) {
+//			attributeHashesTarget.put(att, minhash.signature(attributeMapTarget.get(att)));
+//		}
+//		System.out.println("Generated minhashs ...");
+//		
+//		attributeMapSource = null;
+//		attributeMapTarget = null;
+//		
+//		
+//		//generate the similarity matrix
+//		System.out.println("Creating similarity matrix ...");
+//		ArrayList<String> attFromSource = new ArrayList<String>(attributeHashesSource.keySet());
+//		ArrayList<String> attFromTarget = new ArrayList<String>(attributeHashesTarget.keySet());
+//		double[][] similarityMatrix = new double[attFromSource.size()][attFromTarget.size()];
+//		double sum = 0.0;
+//		for (int i = 0; i < attFromSource.size(); i++) {
+//			for (int j = 0; j < attFromTarget.size(); j++) {
+//				double similarity = minhash.similarity(attributeHashesSource.get(attFromSource.get(i)), attributeHashesTarget.get(attFromTarget.get(j)));
+//				sum += similarity;
+//				similarityMatrix[i][j] = similarity;
+//			}
+//		}
+//		System.out.println("Created similarity matrix ...");
+//		
+//		attributeHashesSource = null;
+//		attributeHashesTarget = null;
+//		
+//		double average = sum/(attFromSource.size()*attFromTarget.size());
+//		
+//		System.out.println("Defining the black list ...");
+//		for (int i = 0; i < attFromSource.size(); i++) {
+//			int count = 0;
+//			for (int j = 0; j < attFromTarget.size(); j++) {
+//				if (similarityMatrix[i][j] >= average) { //use average or median
+//					count++;
+//				}
+//			}
+//			if (count == 0) {
+//				blackListSource.add(i);
+//			}
+//			count = 0;
+//		}			
+//		for (int i = 0; i < attFromTarget.size(); i++) {
+//			int count = 0;
+//			for (int j = 0; j < attFromSource.size(); j++) {
+//				if (similarityMatrix[j][i] >= average) {
+//					count++;
+//				}
+//			}
+//			if (count == 0) {
+//				blackListTarget.add(i);
+//			}
+//			count = 0;
+//		}
+//		System.out.println("Defined the black list ...");
+//		
+//		//removing the bad attributes
+//		System.out.println("Removing the attributes for source ...");
+//		for (EntityProfile e : entityListSource) {
+//			for (Integer index : blackListSource) {
+//				Attribute att = findAttribute(e.getAttributes(), attFromSource.get(index));
+//				e.getAttributes().remove(att);
+//			}
+//		}
+//		System.out.println("Removed the attributes for source ...");
+//		System.out.println("Removing the attributes for target ...");
+//		for (EntityProfile e : entityListTarget) {
+//			for (Integer index : blackListTarget) {
+//				Attribute att = findAttribute(e.getAttributes(), attFromTarget.get(index));
+//				e.getAttributes().remove(att);
+//			}
+//		}
+//		System.out.println("Removed the attributes for target ...");
 		
 		
 	}
@@ -232,17 +543,20 @@ public class GenerateDatasetFormatted {
 		ArrayList<String> attFromSource = new ArrayList<String>(attributeHashesSource.keySet());
 		ArrayList<String> attFromTarget = new ArrayList<String>(attributeHashesTarget.keySet());
 		double[][] similarityMatrix = new double[attFromSource.size()][attFromTarget.size()];
-		DescriptiveStatistics statistics = new DescriptiveStatistics();
+//		DescriptiveStatistics statistics = new DescriptiveStatistics();
+		double sum = 0.0;
 		for (int i = 0; i < attFromSource.size(); i++) {
 			for (int j = 0; j < attFromTarget.size(); j++) {
 				double similarity = minhash.similarity(attributeHashesSource.get(attFromSource.get(i)), attributeHashesTarget.get(attFromTarget.get(j)));
-				statistics.addValue(similarity);
+				sum += similarity;
+//				statistics.addValue(similarity);
 				similarityMatrix[i][j] = similarity;
 			}
 		}
 		
 		//attribute selection (based on the matrix evaluation)
-		double average = statistics.getMean();//similaritySum/(attFromSource.size() * attFromTarget.size());
+//		double average = statistics.getMean();//similaritySum/(attFromSource.size() * attFromTarget.size());
+		double average = sum/(attFromSource.size()*attFromTarget.size());
 //			double median = statistics.getPercentile(50); //the percentile in 50% represents the median
 		
 //			ArrayList<Integer> blackListSource = new ArrayList<Integer>();
