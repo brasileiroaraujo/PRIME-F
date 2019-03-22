@@ -16,6 +16,7 @@ package DataStructures;
 
 import java.io.Serializable;
 import java.sql.Timestamp;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.regex.Matcher;
@@ -82,7 +83,9 @@ public class EntityProfile implements Serializable {
 		isSource = Boolean.parseBoolean(parts[0]);
 		entityUrl = parts[1];
 		key = Integer.valueOf(parts[2]);
-		incrementID = Integer.valueOf(parts[3]);
+		if (!parts[3].equalsIgnoreCase("incrementID")) {
+			incrementID = Integer.valueOf(parts[3]);
+		}
 		creation = new Timestamp(System.currentTimeMillis());
 		attributes = new HashSet();
 		setOfTokens = new HashSet<Integer>();
@@ -198,9 +201,9 @@ public class EntityProfile implements Serializable {
 	}
 
 	private Set<Integer> generateTokens(String string) {
-		if (string.length() > 19 && string.substring(0, 19).equals("http://dbpedia.org/")) {
+		if (string.length() > 20 && string.substring(0, 20).equals("<http://dbpedia.org/")) {
 			String[] uriPath = string.split("/");
-			string = uriPath[uriPath.length-1];
+			string = Arrays.toString(uriPath[uriPath.length-1].split("[\\W_]")).toLowerCase();
 		}
 		
 		//To improve quality, use the following code
@@ -214,7 +217,7 @@ public class EntityProfile implements Serializable {
 	}
 	
 	private String[] generateTokensForBigData(String string) {
-		if (string.length() > 19 && string.substring(0, 19).equals("http://dbpedia.org/")) {
+		if (string.length() > 20 && string.substring(0, 20).equals("<http://dbpedia.org/")) {
 			String[] uriPath = string.split("/");
 			string = uriPath[uriPath.length-1];
 		}

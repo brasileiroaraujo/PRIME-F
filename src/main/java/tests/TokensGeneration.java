@@ -12,9 +12,9 @@ import tokens.KeywordGeneratorImpl;
 public class TokensGeneration {
 	public static void main(String[] args) throws URISyntaxException {
 //		String s = "Panasonic TH-42PZ80U - 42' Widescreen Panasonic of Panasonic Panasonic 1080p Plasma HDTV - 1000000:1 Dynamic Contrast Ratio";
-		String s = "http://dbpedia.org/resource/Philip_Barry";
+		String s = "<http://dbpedia.org/resource/Kenton_County%2C_Kentucky>";
 		
-		if (s.substring(0, 19).equals("http://dbpedia.org/")) {
+		if (s.substring(0, 20).equals("<http://dbpedia.org/")) {
 			String[] uriPath = s.split("/");
 			s = uriPath[uriPath.length-1];
 		}
