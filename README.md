@@ -26,3 +26,6 @@ To run the techniques, please, use the following commands in your cluster:
 java -jar /<FILE_NAME>.jar KAFKA_HOST TIME_PERIODICY DATA_SOURCE_PATH_1 DATA_SOURCE_PATH_2 GROUNDTRUTH_PATH PERCENTAGE_PER_INCREMENT APPLY_ATTRIBUTE_SELECTION
 
 ./bin/flink run --class PRIMEbigdata.StreamingMetablocking /<FILE_NAME>.jar FLINK_HOST ZOOKEEPER_HOST TOP-N WINDOW_SIZE SLICE_SIZE OUTPUT NUMBER_NODES ACTIVE_FILTER FILTER_SIZE
+
+
+The datasets and groundtruths applied to evaluate the proposed blocking technique are located at the datasets directory.
