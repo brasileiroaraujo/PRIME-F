@@ -12,15 +12,17 @@ After configure your cluster with Kafka and Flink, it is necessary to configure:
 
 The main classes of our project are:
 
-PRIMEbigdata.PRIMEBigdataGraph5 (Proposed technique)
-DataProducer.KafkaDataStreamingProducerByTimeAttSelection3 (Sender + Attribute Selection)
-PRIMEbigdata.Metablocking (Streaming Metablocking)
+PRIMEbigdata.PRIMEMain (Proposed technique)
+
+DataProducer.SENDERAttSelection (Sender + Attribute Selection)
+
+PRIMEbigdata.StreamingMetablocking (Streaming Metablocking)
 
 
 To run the techniques, please, use the following commands in your cluster:
 
-./bin/flink run --class PRIMEbigdata.PRIMEBigdataGraph5 /<FILE_NAME>.jar FLINK_HOST ZOOKEEPER_HOST TOP-N WINDOW_SIZE SLICE_SIZE OUTPUT NUMBER_NODES ACTIVE_FILTER FILTER_SIZE
+./bin/flink run --class PRIMEbigdata.PRIMEMain /<FILE_NAME>.jar FLINK_HOST ZOOKEEPER_HOST TOP-N WINDOW_SIZE SLICE_SIZE OUTPUT NUMBER_NODES ACTIVE_FILTER FILTER_SIZE
 
 java -jar /<FILE_NAME>.jar KAFKA_HOST TIME_PERIODICY DATA_SOURCE_PATH_1 DATA_SOURCE_PATH_2 GROUNDTRUTH_PATH PERCENTAGE_PER_INCREMENT APPLY_ATTRIBUTE_SELECTION
 
-./bin/flink run --class PRIMEbigdata.Metablocking /<FILE_NAME>.jar FLINK_HOST ZOOKEEPER_HOST TOP-N WINDOW_SIZE SLICE_SIZE OUTPUT NUMBER_NODES ACTIVE_FILTER FILTER_SIZE
+./bin/flink run --class PRIMEbigdata.StreamingMetablocking /<FILE_NAME>.jar FLINK_HOST ZOOKEEPER_HOST TOP-N WINDOW_SIZE SLICE_SIZE OUTPUT NUMBER_NODES ACTIVE_FILTER FILTER_SIZE
